@@ -19,6 +19,16 @@
 
 ---
 
+## 姊妹知识库
+
+本库与另外两个专题库互补，可按方向跳转：
+
+| 知识库 | 侧重 | 仓库 |
+|--------|------|------|
+| **FDE 知识库**（本库） | 前线部署角色、交付方法论、企业 AI 落地、面试通关 | [VanGong1999/FDE](https://github.com/VanGong1999/FDE) |
+| **AI 推理工程知识库** | 推理 Serving、GPU/显存、批处理、KV Cache、性能与成本 | [VanGong1999/ai-inference](https://github.com/VanGong1999/ai-inference) |
+| **AI Agent 知识库** | LLM Agent 面试与系统设计、工具调用、多 Agent、护栏 | [VanGong1999/llm-agents-interview](https://github.com/VanGong1999/llm-agents-interview) |
+
 ## 这个仓库解决什么问题
 
 最终读者应该能通过本仓库完成：
