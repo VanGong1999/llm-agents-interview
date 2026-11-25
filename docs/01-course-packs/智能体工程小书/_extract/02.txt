@@ -1,0 +1,511 @@
+
+
+===== PAGE 26 =====
+
+Chapter 2
+The model as a policy
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. We open the box labeled 𝜋: what one model
+call is, why its output is random, what it costs, and how the
+harness talks to it through a narrow, typed interface.
+2.1 One call: text in, a
+distribution out
+A language model operates on tokens,
+pieces of words from a fixed vocabulary;
+an English token averages three to four
+characters. Given an input sequence 𝑥, the
+model defines a probability distribution
+18
+
+
+===== PAGE 27 =====
+
+over output sequences 𝑦= (𝑦1, … , 𝑦𝑛)
+by predicting one token at a time,
+𝑝𝜃(𝑦∣𝑥) =
+𝑛
+∏
+𝑘=1
+𝑝𝜃(𝑦𝑘∣𝑥, 𝑦<𝑘),
+where 𝜃are the weights fixed during
+training. Generation samples one token
+at a time until an end token or a length
+limit. Sampling parameters such as tem-
+perature reshape each conditional dis-
+tribution, though some current APIs no
+longer expose them, and even identical
+requests need not give identical outputs,
+because serving systems batch computa-
+tion in ways that change floating-point
+results.
+For the agent designer, three facts matter
+more than the model’s internals.
+1. The output is random. The policy
+𝜋(⋅∣𝑐𝑡) of Chapter 1 is literally a
+distribution. Two runs of the same
+agent on the same task can diverge at
+19
+
+
+===== PAGE 28 =====
+
+the first step and never meet again.
+2. The model knows only its weights
+and its context. Anything not in
+𝑐𝑡, such as the current contents of
+stats.py, is unknown to it unless
+the harness puts it there. Facts learned
+during training may be stale or wrong
+for this repository.
+3. Cost and latency scale with tokens.
+Providers charge per input and output
+token, and generation time grows with
+output length.
+2.2 Messages, roles and
+statelessness
+Model APIs accept a list of messages,
+each with a role: a system prompt with
+standing instructions, user messages
+with the task (and, in many APIs, tool
+results), and assistant messages with the
+model’s earlier outputs, including tool
+calls. Roles are a convention the model
+20
+
+
+===== PAGE 29 =====
+
+was trained to respect, not a security
+mechanism (Chapter 9).
+Model APIs are, at bottom, stateless:
+each request must contain everything
+the model should consider.1 The harness
+therefore resends the history on every
+step. This has a cost structure worth de-
+riving. Suppose the fixed part of each
+request (system prompt and tool defi-
+nitions) is 𝑐0 tokens and each step ap-
+pends Δ tokens (one model reply plus
+one tool result). The input at step 𝑡has
+about 𝑐0 + 𝑡Δ tokens, so over 𝑇steps the
+total input is
+𝑇
+∑
+𝑡=1
+(𝑐0 + 𝑡Δ) = 𝑇𝑐0 + Δ 𝑇(𝑇+ 1)
+2
+.
+Total input grows quadratically in the num-
+ber of steps. With 𝑐0 = 5,000, Δ = 2,000
+1Some providers offer server-side conversation state
+or short-lived threads to avoid resending history. These
+change transport costs, not the logic: the model still condi-
+tions on the whole conversation.
+21
+
+
+===== PAGE 30 =====
+
+and 𝑇= 50, a single run reads about
+2.8 million input tokens, of which only
+100,000 are new.
+step 1
+step 2
+step 3
+step 4
+step 5
+system + tools (𝑐0)
+cached history (cheap)
+new Δ
+Figure 2.1. Every step resends the growing history.
+Because each request begins with the previous request as
+an exact prefix, providers can cache that prefix and bill it
+at a small fraction of the normal rate; only the new suﬀix
+(dark) is processed at full price. Any change early in the
+context invalidates the cache from that point on.
+Prompt caching reduces this cost substan-
+tially (Figure 2.1). If the request at step
+𝑡begins with exactly the bytes of the
+request at step 𝑡−1, the provider can
+reuse its internal computation for that
+prefix and charge a fraction of the input
+22
+
+
+===== PAGE 31 =====
+
+price for it. Caching rewards a discipline
+we will meet again in Chapter 5: keep
+the beginning of the context stable and
+make the history append-only. Inserting
+a timestamp into the system prompt, or
+reordering tool definitions between calls,
+silently forfeits the cache [48].
+The mechanism explains the rule. A
+model processes a request in two phases:
+prefill, which reads the whole input in
+one parallel pass, and decode, which gen-
+erates one token at a time. During prefill
+the model computes, for every input to-
+ken, internal vectors (the keys and values
+of its attention layers) that every later to-
+ken consults; the serving system keeps
+them as the KV cache so that decoding
+need not recompute them. Each vector
+depends on the token’s position and on
+everything before it. A request that re-
+peats an earlier request’s prefix byte for
+byte can reuse the stored vectors; a single
+token inserted near the front changes
+23
+
+
+===== PAGE 32 =====
+
+the positions of everything after it and
+forces recomputation from that point [79].
+Latency follows the same split: the time
+to first token is dominated by prefill and
+grows with the context, while the time
+per output token is roughly constant. An
+agent pays both on every step, which is a
+second reason, besides price, to keep the
+context small.
+2.3 Tool calling: a typed contract
+A model that can only emit prose cannot
+reliably operate a computer: the harness
+would have to guess, from a sentence
+like “let me look at the stats file,” which
+function to call with which argument.
+Current models are trained to emit tool
+calls: structured requests that name a tool
+from a list supplied in the request and
+give arguments matching that tool’s JSON
+Schema [62]. The harness executes the
+call and returns the result, tagged with
+the same identifier, in the next request.
+24
+
+
+===== PAGE 33 =====
+
+Figure 2.2 shows one round trip.
+User
+Harness
+Model
+Tool
+task
+messages + tool schemas
+call_1: run_tests()
+validate, gate
+execute
+FAILED …
+result for call_1
+next call, or final text
+answer
+Figure 2.2. One tool-call round trip. The model never
+executes anything: it proposes a call (call_1); the
+harness validates, runs it and returns the result tagged
+with the same identifier. The identifier lets the model
+match results to requests, including when several calls
+are issued at once.
+The harness needs its own, provider-
+independent representation of this ex-
+change. In miniagent it is three small
+types and one interface:
+25
+
+
+===== PAGE 34 =====
+
+@dataclass
+class ToolCall:
+id: str
+# links call and result
+name: str
+# which tool
+args: dict[str, Any]
+# proposed arguments
+@dataclass
+class Reply:
+text: str = ""
+# prose for the user
+calls: list[ToolCall] = field(
+default_factory=list)
+raw: Any = None
+# provider-native content
+stop: str = "end_turn"
+# why generation ended
+class Model(Protocol):
+def next(self, system: str,
+tools: list["Tool"],
+messages: list[dict]) -> Reply: ...
+A ToolCall carries an identifier, a tool
+name and an argument dictionary. A
+Reply is what one model call returns:
+text for the user, zero or more tool calls,
+the provider’s raw content (needed
+later), and a stop reason. The Model
+protocol says that anything with a
+method next(system, tools,
+messages) returning a Reply can serve
+as the policy. Everything else in the
+harness depends only on these types.
+26
+
+
+===== PAGE 35 =====
+
+Besides “finished” and “wants a tool,” a
+generation can stop at the output-length
+limit or because the provider declined
+the request. Treating a truncated reply as
+a final answer is a common silent failure;
+the loop of Chapter 3 handles these cases
+explicitly.
+Syntax, schema, meaning
+A tool call can be malformed (invalid
+JSON), violate the schema (a missing ar-
+gument, a wrong type), or be well-formed
+and still wrong (editing the wrong line).
+Providers can often constrain decoding
+to the schema, removing the first two lev-
+els; the harness should validate anyway,
+since not every mode guarantees it. The
+third level is caught only by the environ-
+ment and the evaluator.
+2.4 Reasoning before acting
+Writing out intermediate steps before
+the answer (chain-of-thought reasoning)
+27
+
+
+===== PAGE 36 =====
+
+improves accuracy on multi-step prob-
+lems [72], and majority voting over sev-
+eral sampled chains improves it fur-
+ther [68]. Current reasoning models build
+this in, generating hidden or summa-
+rized thinking before each output, in-
+cluding between tool calls. An effort set-
+ting trades tokens and latency for ac-
+curacy; the right level is an empirical
+question.
+Two consequences for the harness. Think-
+ing content must usually be passed
+back unchanged in later requests (some
+providers sign it and reject edited histo-
+ries), which is why Reply keeps the raw
+content. And stated reasoning is not a
+reliable audit log: judge an agent by its
+recorded actions and their effects, not its
+narration.
+2.5 The adapter
+An adapter translates between the har-
+ness’s types and one provider’s wire
+28
+
+
+===== PAGE 37 =====
+
+format, so the rest of the code never
+changes when the model does. Here is
+one for the Anthropic Messages API, as
+documented in late 2026:
+class ClaudeModel:
+"""Anthropic Messages API adapter."""
+def __init__(self, model="claude-opus-5-5",
+max_tokens=16000):
+import anthropic
+# pip install anthropic
+self.client = anthropic.Anthropic()
+self.model = model
+self.max_tokens = max_tokens
+def next(self, system, tools, messages):
+resp = self.client.messages.create(
+model=self.model,
+max_tokens=self.max_tokens,
+system=system,
+tools=[{"name": t.name,
+"description": t.description,
+"input_schema": t.schema}
+for t in tools],
+messages=to_wire(messages))
+calls = [ToolCall(b.id, b.name, b.input)
+for b in resp.content
+if b.type == "tool_use"]
+text = "".join(b.text for b in resp.content
+if b.type == "text")
+return Reply(text, calls, raw=resp.content,
+stop=resp.stop_reason)
+def to_wire(messages: list[dict]) -> list[dict]:
+out: list[dict] = []
+for m in messages:
+role = m["role"]
+if role == "user":
+out.append({"role": "user",
+"content": m["content"]})
+elif role == "assistant":
+# verbatim
+29
+
+
+===== PAGE 38 =====
+
+out.append({"role": "assistant",
+"content": m["reply"].raw})
+else:
+# tool results go in a user turn
+block = {"type": "tool_result",
+"tool_use_id": m["call_id"],
+"content": m["content"],
+"is_error": m["is_error"]}
+last = out[-1] if out else None
+if (last and last["role"] == "user"
+and isinstance(last["content"],
+list)):
+last["content"].append(block)
+else:
+out.append({"role": "user",
+"content": [block]})
+return out
+The adapter does three things worth
+copying into any implementation. It
+sends tool definitions as name, descrip-
+tion and JSON Schema, which is the com-
+mon denominator across providers. It re-
+turns the assistant’s content verbatim on
+the next request, which preserves think-
+ing blocks and any provider-specific
+structure. And it groups consecutive tool
+results into a single user turn, which is
+how this API expects the results of paral-
+lel tool calls to be returned.
+A second implementation of the proto-
+30
+
+
+===== PAGE 39 =====
+
+col, ScriptedModel, replays a fixed
+script of replies. It tests the harness de-
+terministically, offline and for free, but
+not whether a real model would choose
+those actions; that requires the evalua-
+tions of Chapter 10.
+2.6 Choosing a model
+Model choice trades capability, cost and
+latency, and benchmarks only roughly
+predict your task. Three rules of thumb:
+• Measure cost per completed task,
+not per token. A cheaper model that
+needs twice as many steps, or fails a
+third of the time, is not cheaper.
+• Start with the most capable model
+that is affordable, then move down.
+It establishes what is achievable; only
+then is it clear whether a smaller
+model’s failures are the model’s or the
+harness’s.
+31
+
+
+===== PAGE 40 =====
+
+• Different roles can use different
+models. A helper agent that skims
+files on the main agent’s behalf (a
+subagent, Chapter 8) or a model that
+checks formatting (a grader, Chap-
+ter 10) can often use a smaller, faster
+model than the main loop.
+• The harness is part of the measure-
+ment. The same model scores differ-
+ently under different harnesses on
+the same benchmark, and the gap
+is often as large as the gap between
+models [79, 67]. A number quoted for
+a model is a number for that model
+inside someone’s harness.
+Record the exact model identifier and
+effort level with every experiment; an
+alias that silently moves to a new version
+is a change to 𝜋.
+32
+
+
+===== PAGE 41 =====
+
+Summary
+• A model call samples tokens from a
+learned conditional distribution. Out-
+puts are random; the model knows
+only its weights and its context.
+• APIs are stateless, so each step
+resends the history and total input
+grows quadratically in the number of
+steps. Prompt caching makes a stable,
+append-only prefix cheap.
+• Tool calling is a typed contract:
+the model proposes (id, name,
+args); the harness validates, exe-
+cutes and returns the result under the
+same id.
+• An adapter isolates provider details.
+A scripted model tests the harness; it
+does not measure the model.
+33
+
+
+===== PAGE 42 =====
+
+How this connects
+Chapter 3 wraps the Model interface
+in the loop of Figure 1.1. The quadratic
+cost and caching discipline reappear in
+Chapter 5, where the context window be-
+comes the central resource. Model choice
+returns in Chapter 10 as a controlled ex-
+periment.
+Exercises
+2.1 An agent’s system prompt and tools
+take 𝑐0 = 8,000 tokens; each step adds
+Δ = 1,500. Compute total input tokens
+for 𝑇= 20 and 𝑇= 80. If cached pre-
+fix tokens cost 10% of the normal input
+price and every request hits the cache
+for all but its new Δ tokens, by what
+factor does caching reduce input cost
+at 𝑇= 80?
+2.2 A provider returns a reply with stop
+reason “max output tokens reached” and
+text that ends mid-sentence, with no tool
+34
+
+
+===== PAGE 43 =====
+
+call. Explain what a naive loop would do
+and what the loop should do instead.
+35

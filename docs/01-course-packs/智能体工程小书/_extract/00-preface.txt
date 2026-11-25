@@ -1,0 +1,143 @@
+
+
+===== PAGE 3 =====
+
+Preface: how to read this
+book
+This is a short course on building agents:
+programs in which a language model
+repeatedly chooses the next action, the
+program carries it out, and the result
+informs the next choice. It is written for
+readers who program, are comfortable
+with elementary probability, and want
+to understand why agent systems are
+designed the way they are, not only how
+to call a particular framework.
+One idea, developed in steps
+The book is organized around a single
+picture, the agent map of Chapter 1. An
+agent has a fixed part, the model, and a
+part we design, the harness. The harness
+decides what the model sees, which ac-
+tions it may take, whether a proposed ac-
+ii
+
+
+===== PAGE 4 =====
+
+tion is allowed, what is remembered, and
+when to stop. Each later chapter takes
+one component of the map and asks the
+same question: how should this compo-
+nent be designed so that the whole loop
+succeeds more often, at lower cost, with-
+out doing harm? Every chapter opens
+with the map, the component under dis-
+cussion highlighted, and closes with a
+short account of how it connects to the
+others.
+Stated as one sentence: agent engineering
+is the design of the harness around a fixed,
+stochastic policy, together with the measure-
+ments that tell us whether a design is better.
+The model is a component we choose but
+rarely train. Almost everything else is
+ours.
+iii
+
+
+===== PAGE 5 =====
+
+1 What an agent is
+2 The model
+3 The loop
+4 Tools
+5 Context
+7 Control and
+long horizons
+9 Safety
+6 Retrieval and
+memory
+8 Composition
+10 Evaluation and observability
+11 Putting it together
+Figure 1. Chapter dependencies. Solid arrows mean
+“builds directly on.” Chapters 1–3 are the foundation;
+4–9 each develop one component of the agent map; 10
+supplies the measurements that every design decision
+needs; 11 assembles the whole.
+A running example
+One task runs through the book: a repos-
+itory contains a function with a bug, a
+test that exposes it, and a README with
+a malicious instruction hidden in a com-
+ment. The agent must find and fix the
+iv
+
+
+===== PAGE 6 =====
+
+bug. The example is small enough to
+trace by hand, yet it exercises every com-
+ponent: tools to read, search, edit and
+test; a context that fills up with file con-
+tents; a test suite that gives the loop an
+external signal of success; an edit that
+should require permission; an injected in-
+struction that must not acquire authority;
+and an evaluation that asks how often,
+over repeated runs, the agent succeeds.
+A second, research-style example (an-
+swering questions from documents) ap-
+pears where retrieval is the subject.
+Companion code
+The folder agent_engineering_code
+contains miniagent, a complete agent
+in about 400 lines of standard-library
+Python, with an offline test suite and an
+optional adapter for a hosted model. Ev-
+ery listing in the book is extracted from
+it by a script, so the printed code is the
+tested code. Listings are excerpts; im-
+v
+
+
+===== PAGE 7 =====
+
+ports and helper functions are in the files.
+To run the example:
+cd agent_engineering_code
+python3 -m miniagent.demo
+# offline
+python3 -m unittest discover -s tests
+python3 -m miniagent.demo --live
+The offline demo uses a scripted model
+that replays a fixed sequence of deci-
+sions. It tests the harness deterministi-
+cally and says nothing about how well a
+real model chooses; Chapter 10 explains
+how to measure that.
+Conventions
+Mathematical notation is introduced
+in Chapter 1 and used sparingly after-
+wards; Table 1.1 there is the key. Facts
+about specific products and protocols
+change quickly. Where the book states
+one, it gives the source and date; treat
+such statements as a snapshot from late
+2026 and check the current documenta-
+tion before relying on them. The princi-
+ples are meant to outlast the products.
+vi
+
+
+===== PAGE 8 =====
+
+An earlier draft of this guide was written
+as a companion to Hur and Song’s Build
+an AI Agent (From Scratch) [31], which
+builds an agent framework step by step;
+this version is self-contained and can be
+read on its own or alongside it.
+vii

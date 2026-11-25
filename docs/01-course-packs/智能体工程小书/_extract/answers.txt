@@ -1,0 +1,152 @@
+
+
+===== PAGE 190 =====
+
+Answers to exercises
+1.1 (a) A program: the steps are fixed and no judg-
+ment is needed. (b) A router, or a workflow with
+one classification call: the path is fixed except for the
+branch, and labels can be spot-checked. (c) An agent:
+the path depends on what the logs reveal, the answer
+can be checked against them, and investigation is read-
+only.
+1.2 We need (1−𝑞)40 ≥0.8 with 𝑞= (1−𝑟)(1−𝑑),
+so 𝑞≤1 −0.81/40 ≈0.00556. With 1 −𝑟= 0.03,
+1 −𝑑≤0.185, so 𝑑≳0.81.
+2.1 𝑇= 20: 20⋅8,000+1,500⋅210 = 475,000. 𝑇=
+80: 640,000 + 1,500 ⋅3,240 = 5,500,000. With
+caching, full-price tokens are 𝑐0 + 80Δ = 128,000;
+the remaining 5,372,000 cost 10%, for an equivalent
+of about 665,000, roughly an eightfold reduction
+(ignoring any premium for writing the cache).
+2.2 A naive loop sees no tool calls and returns the
+truncated text as the answer. It should report a distinct
+status (stopped), or ask the model to continue with
+a larger output limit, and never present partial text as
+complete.
+3.1 Result("budget_exhausted", None, mes-
+sages, 5); messages holds 1 + 5 ⋅2 = 11 entries.
+The last observation is test output, not an answer to
+the task; presenting it as one would hide the failure.
+3.2 Confusing: with arguments {"path": 3}, a
+182
+
+
+===== PAGE 191 =====
+
+path-based gate might crash or report “not permit-
+ted” instead of “should be string.” Unsafe: a gate that
+checks args["path"] can be bypassed by arguments
+the tool interprets differently from the gate (an ex-
+tra key, a list of paths). Validate first so the gate sees
+exactly what the tool will use.
+4.1 For example read_file(path, start=1,
+end=null) returning numbered lines with a header
+“lines 𝑎–𝑏of 𝑁”; requests over 300 lines return the
+first 300 plus a notice: “file has 𝑁lines; request a
+narrower range or use search.”
+4.2 With bash, the gate sees an opaque command
+string, the log records free text, and anything
+is possible, including deleting data. With
+restart_service(name), the gate can check name
+against an allowlist, the log is structured, and the
+worst case is an unnecessary restart.
+5.1 Fifteen reads of 3,000 tokens: about 45,000 tokens
+without elision. With keep_last=3: 3 ⋅3,000 plus
+twelve stubs of roughly fifteen tokens, about 9,200.
+5.2 Keep: the task and definition of done (else the
+agent forgets the constraint not to edit tests); files
+changed and why (else it re-edits or reverts); the
+current hypothesis and key failure lines (else it re-
+investigates); approaches that failed (else it repeats
+them); next steps. Drop: full file contents and stale test
+outputs, which can be re-obtained.
+6.1 A: 1/61 + 1/62 ≈0.03252; C: 1/63 + 1/61 ≈
+0.03227; B: 1/62 + 1/64 ≈0.03175; D: 1/64 +
+1/63 ≈0.03150. Order A, C, B, D. A, ranked first
+and second, beats C despite C’s first place, because
+183
+
+
+===== PAGE 192 =====
+
+both rankers place A high.
+6.2 For: it saves rediscovery in later runs. Against: the
+instruction comes from untrusted repository content,
+may go stale, and the README already stores it. If
+written, record source path, commit, date, and that it
+derives from repository content, so later runs treat it
+as data.
+7.1 Editing or deleting the failing test; special-casing
+the test’s input. Prevent with hidden tests in the
+grader, a check that test files are unmodified, and a
+gate that denies edits under tests/.
+7.2 The retry carries a new key, so the destination
+treats it as a new request and publishes twice. Derive
+the key from the operation’s identity (run and call id,
+or a hash of the content), store it in the pending record
+before sending, and reuse it on retry.
+8.1 𝑃maj(5, 0.6) ≈0.683. Correlated case: 0.7 ⋅
+𝑃maj(5, 0.75) + 0.3 ⋅0 ≈0.7 ⋅0.896 ≈0.628, lower
+than the independent case even though the voters are
+independent 70% of the time: one shared failure mode
+outweighs the higher individual accuracy.
+8.2 For example: “Find where parse_config is
+called and how its return value is used. Report each
+call site as file:line with one sentence on usage,
+then a three-sentence summary. Read-only; search
+under src/ only; at most 15 steps. If you find nothing,
+say so.”
+8.3 (a) Tool: a bounded lookup whose result the triage
+agent folds into its own reply. (b) Handoff: the spe-
+cialist needs the whole conversation and will own
+184
+
+
+===== PAGE 193 =====
+
+several further turns with the customer. (c) Tool: a
+lookup with a short report; the triage agent decides
+what to do with it.
+9.1 Private data: the inbox; untrusted content: incom-
+ing email; external communication: sending. Design
+A: the assistant only drafts and a human sends (re-
+moves autonomous communication). Design B: while
+processing incoming mail the assistant has no send
+tool, and sending happens in a separate step that sees
+only the user’s instructions and the draft (separates
+untrusted content from communication).
+9.2 In the gate, for edit_file: normalize the
+path, deny if it starts with .git/, allow under
+src/ or tests/, otherwise ask. Normalize first, or
+src/../.git/config passes a naive prefix check.
+Workspace.resolve already guarantees that no
+path escapes the workspace.
+10.1̂ pass@ 3 = 1 −(2
+3)/(5
+3) = 1 and̂ pass3 =
+(3
+3)/(5
+3) = 0.1. For one proposed fix judged once,
+neither: report pass@1 = 𝑐/𝑛= 0.6. pass@3 would
+apply if the human reviewed three candidates.
+10.2 The standard error of the difference is about
+√0.72 ⋅0.28/100 + 0.68 ⋅0.32/100 ≈0.065,
+so two standard errors is about 13 points; a 4-point
+gap is noise. Pair the comparison on identical tasks,
+add tasks, run several trials per task, and report an
+interval.
+10.3 (a) A verifier change: the agent saw nothing dif-
+ferent, so stored traces and final states remain valid
+185
+
+
+===== PAGE 194 =====
+
+and are regraded with the new test; no rerun. (b) An
+agent-visible change: the agents would have behaved
+differently with the new instruction, so all trials of that
+task must be rerun. (c) A solution change: the oracle
+is independent of agent trials, so nothing is redone;
+rerun only the oracle to confirm the task still works.
+186

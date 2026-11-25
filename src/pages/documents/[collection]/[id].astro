@@ -1,0 +1,25 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import {marked} from 'marked';
+import {dirname,normalize} from 'node:path';
+import {documents} from '../../../data/documents';
+import {collections,topics} from '../../../data/content';
+import {url} from '../../../lib/urls';
+export function getStaticPaths(){return documents.map(doc=>({params:{collection:doc.collection,id:doc.id},props:{doc}}));}
+const {doc}=Astro.props;
+const collection=collections.find(item=>item.id===doc.collection);
+const topic=topics.find(item=>item.id===collection.topic);
+const docByPath=new Map(documents.map(item=>[normalize(item.relativePath),item]));
+const assetFolderByCollection={"vizuara-harness-workshop":"vizuara-harness","little-book-agent-engineering":"agent-engineering"};
+const assetFolder=assetFolderByCollection[doc.collection]||doc.collection;
+const renderer=new marked.Renderer();
+renderer.link=({href,title,text})=>{let target=href||'';if(target.endsWith('.md')){const resolved=normalize(dirname(doc.relativePath)+'/'+target);const linked=docByPath.get(resolved);if(linked)target=url('documents/'+linked.collection+'/'+linked.id+'/');}else if(/\.(png|jpg|jpeg|gif)$/i.test(target)){target=url('source-assets/'+assetFolder+'/'+target.split('/').pop());}return '<a href="'+target+'"'+(title?' title="'+title+'"':'')+'>'+text+'</a>';};
+renderer.image=({href,title,text})=>{const asset=href?.endsWith('.png')||href?.endsWith('.jpg')||href?.endsWith('.jpeg');const target=asset?url('source-assets/'+assetFolder+'/'+href.split('/').pop()):href;return '<img src="'+target+'" alt="'+(text||'')+'"'+(title?' title="'+title+'"':'')+'>';};
+const source=doc.raw.replace(/src=["'](?:\.\/)?([^"']+\.(?:png|jpg|jpeg|gif))["']/gi,(_match,file)=>`src="${url("source-assets/"+assetFolder+"/"+file.split("/").pop())}"`);
+const html=marked.parse(source,{gfm:true,breaks:false,renderer});
+---
+<Layout title={doc.title} active="library" description={doc.title} wide>
+<div class="breadcrumb"><a href={url("library/")}>资料库</a><span>/</span><a href={url("articles/"+collection.id+"/")}>{collection.title}</a><span>/</span><span>{doc.fileName}</span></div>
+<div class="document-layout"><aside class="reading-toc" data-pagefind-ignore><span class="eyebrow">资料文档</span><a href={url("articles/"+collection.id+"/")}>← 返回资料集</a><div class="toc-divider"></div><span class="eyebrow">来源信息</span><span>{collection.sourcePath}</span><span>{doc.relativePath}</span><span>{collection.sourceCount} 份文档</span><div class="toc-divider"></div><span class="eyebrow">标签</span><div class="tags">{collection.tags.map(tag=><a href={url("library/?topic="+collection.topic+"&tag="+encodeURIComponent(tag))}>{tag}</a>)}</div></aside>
+<article class="document-article" data-pagefind-body><div class="tags"><span class="green-tag">{topic.name}</span><span>{collection.type}</span><span>原始文档</span></div><h1>{doc.title}</h1><p class="article-deck">{doc.fileName} · {doc.relativePath}</p><div class="document-notice">这是资料库中的原始 Markdown 文档。当前页面只负责展示原文，摘要和工程精华尚未提取。</div><div class="document-body" set:html={html}></div></article>
+</div></Layout>

@@ -1,0 +1,554 @@
+
+
+===== PAGE 93 =====
+
+Chapter 6
+Knowledge outside the
+window: retrieval and
+memory
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. We design the store 𝑀and the two paths
+that connect it to the context: the read path (retrieval) and
+the write path (memory). Together they let an agent use
+far more information than fits in one window and carry
+what it learns across runs.
+6.1 The store and its two paths
+Replacing contents by references pre-
+sumes a place to keep contents: the store
+𝑀, a directory, database, index or docu-
+85
+
+
+===== PAGE 94 =====
+
+ment collection. The read path (retrieval)
+moves material from 𝑀into the context;
+the write path (memory, narrowly) decides
+what the agent stores for later.
+A useful taxonomy, borrowed from cog-
+nitive science and adapted to language
+agents [65], distinguishes four kinds of
+memory by what they hold (Figure 6.1).
+Working
+the context 𝑐𝑡
+Episodic
+logs, past
+runs, traces
+Semantic
+documents,
+facts, the
+codebase
+Procedural
+instructions,
+skills, tools
+read
+read
+read
+write
+write
+store 𝑀
+Figure 6.1. Kinds of memory and how they reach the
+model. Only working memory is visible to the model;
+everything else must be retrieved into it. Arrows into the
+store are the write path, arrows out are the read path.
+The kinds differ in how they are written,
+searched and go stale: episodic memory
+is append-only history; semantic mem-
+86
+
+
+===== PAGE 95 =====
+
+ory changes with the world; procedural
+memory is curated, often by people.
+6.2 Retrieval: a pipeline or a tool
+In classic retrieval-augmented generation
+(RAG), retrieval is a fixed stage before
+generation [43]: a workflow. In agentic
+retrieval, search is a tool the model calls
+as often as it likes, refining queries and
+following leads (Figure 6.2).
+question
+retrieve top 𝑘
+generate
+answer
+RAG pipeline
+question
+model decides
+search(q)
+open(doc)
+answer
+query
+passages
+Agentic retrieval
+Figure 6.2. Two placements of retrieval. Left: a fixed
+pipeline retrieves once, before generation. Right: re-
+trieval is a tool inside the agent loop, so the model can
+reformulate queries and follow leads. The second is
+more capable and more expensive.
+Simple lookups (“what is our refund
+87
+
+
+===== PAGE 96 =====
+
+window?”) suit the pipeline: cheaper,
+faster, easier to evaluate. Questions that
+require following references (“why did
+last night’s build fail?”) suit the agentic
+form. Many coding agents rely almost
+entirely on grep-style agentic search
+with no vector index, because code has
+exact identifiers and changes constantly.
+Agentic retrieval adds three decisions that
+a pipeline makes once and for all: whether
+to retrieve at all, what query to issue, and
+whether the results suffice or the loop
+should continue. Each can live in a differ-
+ent place. Self-RAG trains the generator
+itself to emit tokens that request retrieval
+and to critique what comes back [15].
+CRAG leaves the generator alone and
+inserts a small evaluator that grades re-
+trieved passages as correct, ambiguous
+or wrong and triggers a rewritten query
+or a web search accordingly [78]. Search-
+R1 learns the whole loop by reinforce-
+ment learning, the only reward being a
+88
+
+
+===== PAGE 97 =====
+
+correct final answer, and ends up issuing
+several reformulated queries per ques-
+tion that nobody scripted [33]. With a ca-
+pable model and a search tool, all three
+decisions are made in the loop by the
+policy; the designs differ in how much of
+the behavior is trained, scripted or left to
+the model, and the choice should follow
+evaluation.
+6.3 How search works
+Three ranking techniques cover most
+practice.
+Lexical search
+scores documents by
+overlap of terms with the query. The
+standard formula, BM25, scores docu-
+ment 𝑑for query 𝑞as
+BM25(𝑑, 𝑞) = ∑
+𝑤∈𝑞
+idf(𝑤) 𝑓𝑤𝑑(𝑘1 + 1)
+𝑓𝑤𝑑+ 𝑘1𝐿𝑑
+,
+with length factor 𝐿𝑑= 1 −𝑏+ 𝑏|𝑑|/̄ℓ,
+where 𝑓𝑤𝑑is the term’s frequency in 𝑑,
+89
+
+
+===== PAGE 98 =====
+
+̄ℓthe average document length, idf(𝑤)
+grows with the term’s rarity, and 𝑘1 ≈
+1.2, 𝑏≈0.75 [59]. Frequency saturates
+and long documents are penalized. Lex-
+ical search excels at exact identifiers and
+error messages.
+Dense search
+maps queries and pas-
+sages to vectors with an embedding model
+trained so that related texts have nearby
+vectors, and ranks by cosine similarity,
+sim(𝑞, 𝑣) =
+𝑞⊤𝑣
+‖𝑞‖ ‖𝑣‖,
+using an approximate nearest-neighbor
+index [36]. It captures paraphrase (“re-
+sponse time” matches “latency”) and
+misses exact tokens. Similarity is a rank-
+ing signal, not evidence of truth.
+Hybrid search
+runs both and merges
+the rankings. A simple, robust merge is
+reciprocal rank fusion: a document’s fused
+90
+
+
+===== PAGE 99 =====
+
+score is
+RRF(𝑑) =
+∑
+𝑟∈rankers
+1
+𝑘+ rank𝑟(𝑑),
+with 𝑘≈60 [20]; it uses only ranks,
+so incomparable scores need no cali-
+bration. A reranker model can then re-
+order the top few dozen candidates more
+accurately. The reranker is usually a
+cross-encoder, which reads query and pas-
+sage together in one pass and so judges
+relevance better than a comparison of
+two separately computed vectors (a bi-
+encoder), but cannot be precomputed
+and is too slow to run over a corpus. The
+division of labor follows: cheap lexical
+and dense search to find candidates, an
+expensive cross-encoder to order a few
+dozen of them. Late-interaction models
+such as ColBERT keep one vector per to-
+ken and sit between the two in cost and
+accuracy [37].
+91
+
+
+===== PAGE 100 =====
+
+Chunking.
+Small chunks isolate facts
+but sever qualifications; large ones waste
+budget. Split at structural boundaries,
+and consider prepending to each chunk
+a sentence situating it in its document,
+which Anthropic reported substantially
+reduced retrieval failures [5].
+Match the index to the question.
+A
+chunk answers a question about a fact.
+Questions about a whole document
+(“what is the central theme?”) or about
+many documents (“how is this topic
+perceived?”) have no single chunk
+that answers them. Two index designs
+address this (Figure 6.3). RAPTOR clus-
+ters chunks, summarizes each cluster,
+embeds the summaries and repeats,
+giving a tree whose upper levels answer
+thematic questions and whose leaves
+answer detailed ones; retrieval searches
+all levels [61]. GraphRAG extracts
+entities and relations into a graph at
+92
+
+
+===== PAGE 101 =====
+
+indexing time, detects communities and
+summarizes each; a query is put to every
+relevant community summary and the
+partial answers are merged [24]. Both
+spend many model calls at indexing
+time, and most production systems still
+serve most questions from plain chunks.
+Reach for a hierarchy when evaluation
+shows failures on questions whose
+answers are spread out.
+Chunks
+a fact in one passage
+Tree
+summary summary
+summary
+a theme of one document
+Graph
+community
+community
+a topic across documents
+Figure 6.3. Index granularity should match question
+granularity. Plain chunks answer questions about a
+fact; a tree of summaries answers questions about a
+document; a graph of entities grouped into communities
+answers questions that span documents. Each level up
+costs more model calls at indexing time.
+93
+
+
+===== PAGE 102 =====
+
+6.4 Measuring retrieval
+separately
+Retrieval failures masquerade as genera-
+tion failures, so evaluate the read path on
+its own. With labeled relevant passages
+𝑅and top-𝑘retrieved set 𝑆𝑘,
+recall@ 𝑘= |𝑅∩𝑆𝑘|
+|𝑅|
+,
+MRR = 𝔼[ 1
+𝑟1
+],
+where 𝑟1 is the rank of the first relevant
+passage. Neither says whether the an-
+swer used the evidence correctly (Chap-
+ter 10). For agentic retrieval, ask whether
+the trace ever opened the relevant docu-
+ment.
+Table 6.1 sorts the ways a retrieval-
+augmented answer fails. The first group
+is caught by the metrics above; the
+second only by grading answers; the
+third only by reading traces. One entry
+94
+
+
+===== PAGE 103 =====
+
+deserves emphasis. A permission leak
+is a search that returns a passage the
+requesting user may not see. Access
+control belongs in the retriever, which
+filters by the user’s permissions before
+ranking, not in an instruction to the
+model [79].
+Table 6.1. Failure modes of retrieval-augmented an-
+swers, by where they arise.
+Side
+Failures
+retrieval
+the relevant passage is never ranked high
+enough; the index is stale; a passage is
+returned that the user may not see (per-
+mission leak)
+reader
+the passage is in the middle and ignored;
+a similar but irrelevant passage distracts;
+two passages disagree and the answer
+picks one silently
+loop
+an early wrong retrieval steers every later
+step; there is no stopping rule; a retrieved
+document carries injected instructions
+95
+
+
+===== PAGE 104 =====
+
+6.5 From passages to grounded
+answers
+Take a second example: “Does our API
+support batch requests, and with what
+limits?” over a documentation folder.
+Keep provenance with every retrieved
+item (stable identifier, version, loca-
+tion); have the model cite identifiers
+and the harness check each was actually
+retrieved; and check support claim by
+claim, which needs a human or model
+grader (Chapter 10). The check is not op-
+tional. When generative search engines
+were audited, users rated their answers
+fluent and useful, yet only about three
+citations in four supported the sentence
+they were attached to [46]. A model gen-
+erates the citation the way it generates
+everything else.
+When sources disagree, say so with dates
+and scope. “I could not find” is more
+honest than “there is no.”
+96
+
+
+===== PAGE 105 =====
+
+6.6 The write path: memory
+Memory is what the agent writes for
+its future self: preferences (“prefers
+pytest”), project facts (“integration
+tests need DB_URL”), lessons (“CI uses
+Python 3.10”). Three questions decide
+whether it helps.
+What and when.
+Write what would oth-
+erwise be rediscovered or asked again,
+when it is learned. Do not duplicate what
+the store already records. The future
+value of a memory is unknown when
+it is written (a user’s joke that meetings
+before ten are not binding “unless there
+are pastries” may or may not be a prefer-
+ence), which is why the raw episodic log
+is kept beside the curated memories: a
+poor curation decision can be revisited.
+Who writes.
+Three mechanisms are
+common. The agent writes through a
+memory tool when it judges something
+97
+
+
+===== PAGE 106 =====
+
+worth keeping, as in MemGPT, where
+the model also manages which facts
+stay pinned in its context [55]. A back-
+ground process reads the conversation
+and adds, updates or deletes memories
+on its own schedule, keeping bookkeep-
+ing out of the agent’s context [79]. Or
+an event triggers the write: the context
+nearing its limit, a session ending. The
+model-driven form is more flexible; the
+workflow form is more predictable and
+easier to audit.
+How to read it back.
+Small memories
+load into every context; larger ones are
+searched like any corpus or exposed
+through a memory tool [55]. Similar-
+ity alone is a weak signal for memories.
+Generative Agents scored each memory
+as a weighted sum of recency, importance
+(a model’s rating when the memory was
+written) and relevance to the query, and
+found reflection, writing higher-level sum-
+98
+
+
+===== PAGE 107 =====
+
+maries of recent memories back into the
+store, to be the component that mattered
+most [56].
+How to keep it true.
+Store source and
+date; update rather than append con-
+tradictions; consolidate. Consolidation
+can run while the agent is idle: sleep-time
+compute reasons over stored memories
+between sessions, merging five separate
+statements about a user’s color prefer-
+ences into one ordered list, so that re-
+trieval later finds the conclusion already
+drawn [44]. Treat memory as untrusted
+input: a memory written while reading a
+malicious document can carry its instruc-
+tions into every later session (memory
+poisoning, Chapter 9).
+The weights are a memory too.
+The
+model’s weights hold facts and proce-
+dures of their own. For facts that are
+few and change, the context wins: fine-
+99
+
+
+===== PAGE 108 =====
+
+tuning a fact in takes thousands of doc-
+uments and still hallucinates. For a pro-
+cedure that is stable and has an environ-
+ment to practice in, training wins, which
+is how providers now teach agentic be-
+havior (Chapter 3). When the two dis-
+agree, the context usually overrides the
+weights, but not reliably [79].
+Evaluate memory separately.
+A
+memory benchmark needs a history
+long enough that memory is actually
+required, realistic sources and questions,
+and verifiable answers; a multiple-choice
+quiz over simulated chats satisfies
+the last and not the first two. On a
+2026 benchmark in which constraints
+accumulate across sessions, systems with
+dedicated memory stores scored below
+agents that simply kept everything in a
+long context [79]. The cheapest adequate
+design is often a long context or a file the
+agent greps, and the symmetric failure,
+100
+
+
+===== PAGE 109 =====
+
+over-personalization, is real: a model eager
+to use what it remembers answered a
+question about elections with an analogy
+to the user’s diet.
+A library of saved procedures lets ca-
+pabilities accumulate across tasks [69];
+agent skills are its curated form.
+Summary
+• The store 𝑀holds what does not fit
+in the window. Retrieval is the read
+path; memory is the write path.
+• Working, episodic, semantic and pro-
+cedural memory differ in contents,
+update policy and staleness.
+• Retrieval can be a fixed pipeline
+(RAG) or a tool in the loop (agentic
+retrieval). Use the pipeline for simple
+lookups and the tool when the agent
+must follow leads.
+• Lexical search finds exact terms,
+101
+
+
+===== PAGE 110 =====
+
+dense search finds paraphrases; hy-
+brid search with rank fusion combines
+them, and a cross-encoder reranks the
+top candidates. Match the index to the
+question: chunks for facts, trees and
+graphs for themes.
+• Evaluate retrieval separately with
+recall@𝑘and MRR, and sort failures
+by side: retrieval, reader or loop. Ac-
+cess control belongs in the retriever.
+• Ground answers in provenance-
+carrying passages and check citations;
+a quarter of generated citations do not
+support their claims. Write memories
+sparingly, with source and date, score
+them by recency, importance and
+relevance, consolidate when idle, and
+treat them as untrusted input.
+How this connects
+The event log, an episodic memory, be-
+comes the basis for recovery in Chapter 7
+102
+
+
+===== PAGE 111 =====
+
+and for tracing in Chapter 10. Retrieved
+documents and memories are the main
+channels for indirect prompt injection
+(Chapter 9). Subagents (Chapter 8) are
+often retrieval specialists.
+Exercises
+6.1 Two rankers order documents as (A,
+B, C, D) and (C, A, D, B). Compute RRF
+scores with 𝑘= 60 and give the fused
+order. Which document benefits from
+appearing near the top of both lists?
+6.2 During a run the agent reads a
+README that says “always run make
+setup before tests.” Should it write this
+to memory? Give one argument for and
+one against, and describe what metadata
+it should store if it does.
+103

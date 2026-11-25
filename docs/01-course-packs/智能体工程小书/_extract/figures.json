@@ -1,0 +1,332 @@
+[
+  {
+    "page": 5,
+    "num": "1.",
+    "caption": "Figure 1. Chapter dependencies. Solid arrows mean “builds directly on.” Chapters 1–3 are the foundation; 4–9 each develop one com"
+  },
+  {
+    "page": 14,
+    "num": "1.1.",
+    "caption": "Figure 1.1. The agent map. The model 𝜋is the only com- ponent we do not write. Everything inside the dashed boundary is the harness"
+  },
+  {
+    "page": 17,
+    "num": "1.2",
+    "caption": "Figure 1.2 9 "
+  },
+  {
+    "page": 18,
+    "num": "1.2.",
+    "caption": "Figure 1.2. Architectures ordered by how much of the control flow the model decides. Moving right buys flexibility on open-ended ta"
+  },
+  {
+    "page": 22,
+    "num": "1.3",
+    "caption": "Figure 1.3 plots both regimes. 𝑇 𝑃(success) 0 25 50 75 100 0.5 1 𝑟= 0.99 𝑟= 0.95 𝑟= 0.95, 𝑑= 0.9 Figure 1.3. Success probability o"
+  },
+  {
+    "page": 24,
+    "num": "1.1",
+    "caption": "Figure 1.1 in about forty lines of Python and runs it on the example. Exercises 1.1 For each task, place the simplest ad- equate a"
+  },
+  {
+    "page": 24,
+    "num": "1.2",
+    "caption": "Figure 1.2 and justify it with the four questions: (a) nightly conversion of a CSV report to a fixed PDF layout; (b) triaging inco"
+  },
+  {
+    "page": 30,
+    "num": "2.1.",
+    "caption": "Figure 2.1. Every step resends the growing history. Because each request begins with the previous request as an exact prefix, provi"
+  },
+  {
+    "page": 30,
+    "num": "2.1",
+    "caption": "Figure 2.1). If the request at step 𝑡begins with exactly the bytes of the request at step 𝑡−1, the provider can reuse its internal"
+  },
+  {
+    "page": 33,
+    "num": "2.2",
+    "caption": "Figure 2.2 shows one round trip. User Harness Model Tool task messages + tool schemas call_1: run_tests() validate, gate execute F"
+  },
+  {
+    "page": 33,
+    "num": "2.2.",
+    "caption": "Figure 2.2. One tool-call round trip. The model never executes anything: it proposes a call (call_1); the harness validates, runs i"
+  },
+  {
+    "page": 42,
+    "num": "1.1.",
+    "caption": "Figure 1.1. The quadratic cost and caching discipline reappear in Chapter 5, where the context window be- comes the central resourc"
+  },
+  {
+    "page": 48,
+    "num": "3.1.",
+    "caption": "Figure 3.1. The path of one proposed call through ex- ecute. Every exit returns an observation to the model. Failures are not excep"
+  },
+  {
+    "page": 51,
+    "num": "3.2.",
+    "caption": "Figure 3.2. States of a run. The loop reports one of three terminal statuses; only evaluation decides success. “An- swered” means t"
+  },
+  {
+    "page": 64,
+    "num": "4.1",
+    "caption": "Figure 4.1). Many coding agents combine a shell for explo- ration with dedicated tools for edits. 56 "
+  },
+  {
+    "page": 65,
+    "num": "4.1.",
+    "caption": "Figure 4.1. Tool granularity. General tools give the model reach and composability; specific tools give the harness something to ch"
+  },
+  {
+    "page": 69,
+    "num": "4.2",
+    "caption": "Figure 4.2). REST APIs are documented in prose for human programmers; a model using one must know the URL, the parameter names and"
+  },
+  {
+    "page": 70,
+    "num": "4.2.",
+    "caption": "Figure 4.2. Three generations of tool interface. Each moves knowledge about the tool out of the model and into a description read a"
+  },
+  {
+    "page": 71,
+    "num": "4.3.",
+    "caption": "Figure 4.3. MCP architecture. The host (the agent ap- plication) runs one MCP client per server. A server advertises tools, resourc"
+  },
+  {
+    "page": 72,
+    "num": "4.4",
+    "caption": "Figure 4.4). The agent presents its own token; the server checks which tools that agent may use, and reaches the underlying servic"
+  },
+  {
+    "page": 73,
+    "num": "4.4.",
+    "caption": "Figure 4.4. An MCP server as a credential boundary. Inbound, the server checks what this agent may call; outbound, it uses its own "
+  },
+  {
+    "page": 78,
+    "num": "5.1",
+    "caption": "Figure 5.1). step 2 step 40 𝑊 system + tools history (tool results) retrieved reserved output Figure 5.1. Composition of the conte"
+  },
+  {
+    "page": 80,
+    "num": "5.2",
+    "caption": "Figure 5.2 shows the original lost-in-the- middle experiment. A model answer- ing from twenty retrieved documents did best when th"
+  },
+  {
+    "page": 81,
+    "num": "5.2.",
+    "caption": "Figure 5.2. Accuracy against the position of the relevant document among twenty retrieved (schematic, after Liu et al.). The first "
+  },
+  {
+    "page": 84,
+    "num": "5.3",
+    "caption": "Figure 5.3). They differ in where they act and in whether the information they remove can be recovered. 76 "
+  },
+  {
+    "page": 85,
+    "num": "5.3.",
+    "caption": "Figure 5.3. Four ways to reduce context. Bounding acts at the source; elision and offloading keep a pointer, so the model can recov"
+  },
+  {
+    "page": 86,
+    "num": "5.4",
+    "caption": "Figure 5.4), and replac- ing old observations by stubs matched model-written summaries on solve rate 78 "
+  },
+  {
+    "page": 87,
+    "num": "5.4.",
+    "caption": "Figure 5.4. Composition of a raw agent context by token type, over coding and mathematics runs. Tool obser- vations dominate; reaso"
+  },
+  {
+    "page": 94,
+    "num": "6.1",
+    "caption": "Figure 6.1). Working the context 𝑐𝑡 Episodic logs, past runs, traces Semantic documents, facts, the codebase Procedural instructio"
+  },
+  {
+    "page": 94,
+    "num": "6.1.",
+    "caption": "Figure 6.1. Kinds of memory and how they reach the model. Only working memory is visible to the model; everything else must be retr"
+  },
+  {
+    "page": 95,
+    "num": "6.2",
+    "caption": "Figure 6.2). question retrieve top 𝑘 generate answer RAG pipeline question model decides search(q) open(doc) answer query passages"
+  },
+  {
+    "page": 95,
+    "num": "6.2.",
+    "caption": "Figure 6.2. Two placements of retrieval. Left: a fixed pipeline retrieves once, before generation. Right: re- trieval is a tool ins"
+  },
+  {
+    "page": 100,
+    "num": "6.3",
+    "caption": "Figure 6.3). RAPTOR clus- ters chunks, summarizes each cluster, embeds the summaries and repeats, giving a tree whose upper levels"
+  },
+  {
+    "page": 101,
+    "num": "6.3.",
+    "caption": "Figure 6.3. Index granularity should match question granularity. Plain chunks answer questions about a fact; a tree of summaries an"
+  },
+  {
+    "page": 113,
+    "num": "7.1",
+    "caption": "Figure 7.1). propose / edit verify done candidate failure details passes verifiers, strongest first: 1. deterministic checks (type"
+  },
+  {
+    "page": 113,
+    "num": "7.1.",
+    "caption": "Figure 7.1. The verify–repair loop. The verifier’s output is an observation like any other. The stronger the ver- ifier, the more t"
+  },
+  {
+    "page": 116,
+    "num": "7.2",
+    "caption": "Figure 7.2). Both used fewer tokens than ReAct at equal or bet- ter accuracy, because the model does not re-read the growing histo"
+  },
+  {
+    "page": 117,
+    "num": "7.2.",
+    "caption": "Figure 7.2. Step-by-step execution against a compiled plan. Above, each action waits for the previous observa- tion and the history"
+  },
+  {
+    "page": 119,
+    "num": "7.3.",
+    "caption": "Figure 7.3. A harness for work spanning many sessions. An initializing session sets up the environment and a structured list of goa"
+  },
+  {
+    "page": 120,
+    "num": "7.4",
+    "caption": "Figure 7.4)? proposed recorded pending sent done unknown ack timeout, crash check destination Figure 7.4. States of an action with"
+  },
+  {
+    "page": 121,
+    "num": "7.4",
+    "caption": "Figure 7.4 as infrastructure rather than as code you write. 113 "
+  },
+  {
+    "page": 126,
+    "num": "8.1",
+    "caption": "Figure 8.1 draws them. 1. Chaining LLM gate LLM out 2. Routing LLM A B out 3. Parallelization split LLM LLM LLM merge out 4. Orche"
+  },
+  {
+    "page": 126,
+    "num": "8.1.",
+    "caption": "Figure 8.1. Five workflow patterns. Boxes are model calls (blue), code (green) or outputs (grey). In each, the programmer fixes the"
+  },
+  {
+    "page": 130,
+    "num": "8.2",
+    "caption": "Figure 8.2). 122 "
+  },
+  {
+    "page": 131,
+    "num": "8.2.",
+    "caption": "Figure 8.2. A subagent as a context firewall. The child loop reads widely in its own context; only its short re- port crosses back."
+  },
+  {
+    "page": 132,
+    "num": "8.3",
+    "caption": "Figure 8.3). Inde- pendent agents attempt the task sepa- rately and an aggregator picks or merges; it is parallelization with agen"
+  },
+  {
+    "page": 133,
+    "num": "8.3.",
+    "caption": "Figure 8.3. Four orchestration patterns. Each agent (green) has its own context. 1: no communication, re- sults merged. 2: a manage"
+  },
+  {
+    "page": 138,
+    "num": "8.4",
+    "caption": "Figure 8.4); isolation during execution is traded for merge conflicts at the end. Both are harness- level devices: a prompt tells "
+  },
+  {
+    "page": 139,
+    "num": "8.4.",
+    "caption": "Figure 8.4. Worktree isolation. Each agent works in its own checkout on its own branch and claims tasks through files in the shared"
+  },
+  {
+    "page": 144,
+    "num": "9.1",
+    "caption": "Figure 9.1 sorts context sources by trust. The trusted side is small; everything else is data, however phrased. 136 "
+  },
+  {
+    "page": 145,
+    "num": "9.1.",
+    "caption": "Figure 9.1. Trust boundaries. Text from the right-hand side can enter the context and influence proposals, but must never acquire a"
+  },
+  {
+    "page": 147,
+    "num": "9.2",
+    "caption": "Figure 9.2). private data untrusted content external communication exfiltration Figure 9.2. The lethal trifecta. An agent with all"
+  },
+  {
+    "page": 148,
+    "num": "9.3",
+    "caption": "Figure 9.3). 1. Action space: expose only the tools the task needs (least privilege) 2. Gate policy: allow, ask or deny each call "
+  },
+  {
+    "page": 148,
+    "num": "9.3.",
+    "caption": "Figure 9.3. Layers of defense, from the outermost (what exists at all) to the innermost (what a human must con- firm). A proposed a"
+  },
+  {
+    "page": 159,
+    "num": "10.1",
+    "caption": "Figure 10.1, with an evaluation suite in the role of a test suite [13]. 151 "
+  },
+  {
+    "page": 160,
+    "num": "10.1.",
+    "caption": "Figure 10.1. The development loop. Read traces to find failures, form a hypothesis about which component caused them, change that co"
+  },
+  {
+    "page": 161,
+    "num": "10.2",
+    "caption": "Figure 10.2). task: instruction + initial state trial: run agent outcome: final state, answer trace: calls, tokens, time grader →sc"
+  },
+  {
+    "page": 161,
+    "num": "10.2.",
+    "caption": "Figure 10.2. Anatomy of an evaluation. Each trial starts from a fresh copy of the task’s environment. Graders look primarily at the "
+  },
+  {
+    "page": 162,
+    "num": "10.3",
+    "caption": "Figure 10.3); otherwise an agent can leave a background process or a patched test runner for the grader to meet. Finally the instru"
+  },
+  {
+    "page": 163,
+    "num": "10.3.",
+    "caption": "Figure 10.3. A task package and the path of one trial. The agent (or the oracle solution, to validate the task) runs in a fresh envi"
+  },
+  {
+    "page": 166,
+    "num": "10.4.",
+    "caption": "Figure 10.4. pass@𝑘and pass𝑘for a task with per-trial success probability 𝑝= 0.7. Retrying with a reliable selector makes the agent "
+  },
+  {
+    "page": 169,
+    "num": "10.5",
+    "caption": "Figure 10.5) [79]: static checks for misconfiguration; a model judge that maps each requirement in the instruction to a check in th"
+  },
+  {
+    "page": 170,
+    "num": "10.5.",
+    "caption": "Figure 10.5. Quality assurance and versioning of a task. Four kinds of check run before a task enters the suite; failures found late"
+  },
+  {
+    "page": 178,
+    "num": "11.1",
+    "caption": "Figure 11.1 draws these dependencies. Tools bounded, instructive Context elide, load on demand Control verify and repair Gate + san"
+  },
+  {
+    "page": 178,
+    "num": "11.1.",
+    "caption": "Figure 11.1. How design choices in one component enable or constrain others. An arrow reads “makes possible or safe.” Most good desi"
+  },
+  {
+    "page": 186,
+    "num": "1.1",
+    "caption": "Figure 1.1). Compaction. Replacing conversation history by a model-written summary so a run can continue past the context window; "
+  }
+]

@@ -1,0 +1,338 @@
+
+
+===== PAGE 176 =====
+
+Chapter 11
+Putting it together
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. Every component is now designed. This
+chapter reviews them as one system, gives a checklist for
+design reviews, and closes with operating an agent over
+time.
+11.1 The running example,
+assembled
+Table 11.1 collects the bug fixer’s design,
+one row per component. Most of it has
+nothing to do with the model.
+168
+
+
+===== PAGE 177 =====
+
+Table 11.1. The bug-fixing agent, component by compo-
+nent.
+Component
+Decision
+Ch.
+Architecture
+a single agent; the path is un-
+known, tests verify, edits are
+reversible
+1
+Model 𝜋
+capable model behind an
+adapter; scripted model for
+harness tests
+2
+Loop
+minimal loop; stop on no tool
+calls, truncation or budget
+3
+Actions 𝒜
+five tools; edits by unique re-
+placement; effects declared
+4
+Context 𝜙
+stable prefix; old tool results
+elided; project briefing file
+5
+Store 𝑀
+agentic search with search;
+event log; no memory needed
+6
+Control
+“run tests before and after”;
+done = tests pass, tests unmodi-
+fied
+7
+Composition
+optional read-only inves-
+tigate subagent for large
+repositories
+8
+Gate 𝑔
+reads free; edits and test runs
+approved or sandboxed; no net-
+work
+9
+Evaluator 𝑅
+hidden tests on final state; 𝑛
+trials per task; pass𝑘
+10
+The rows are not independent. The de-
+cision to have no network tool (gate)
+is what makes reading an untrusted
+169
+
+
+===== PAGE 178 =====
+
+README acceptable (context). Instruc-
+tive edit errors (tools) raise the probabil-
+ity that the verify–repair loop converges
+(control). Eliding old results (context)
+works because read_file is cheap to
+call again (tools). Grading on the final
+state (evaluation) is possible because ev-
+ery trial runs in a fresh copy of the repos-
+itory (environment). Figure 11.1 draws
+these dependencies.
+Tools
+bounded,
+instructive
+Context
+elide, load
+on demand
+Control
+verify and
+repair
+Gate + sandbox
+no network
+Evaluation
+fresh state,
+pass𝑘
+cheap re-reads
+clear
+errors
+untrusted
+text is safe
+safe to try
+tests as grader
+isolated trials
+Figure 11.1. How design choices in one component
+enable or constrain others. An arrow reads “makes
+possible or safe.” Most good designs are coherent across
+components rather than optimal in any one.
+170
+
+
+===== PAGE 179 =====
+
+11.2 A design review checklist
+The checklist below follows the agent
+map. It is meant for reviewing a design
+before building it and for diagnosing a
+system that underperforms.
+Architecture (Ch. 1).
+Is an agent neces-
+sary, or would a workflow do? Is success
+verifiable? What does an error cost, and
+can it be undone?
+Model (Ch. 2).
+Which model, at which
+effort level, and how was it chosen? Is
+the provider behind an adapter? Are
+stop reasons other than “done” handled?
+Loop (Ch. 3).
+What are the budgets
+(steps, tokens, time, money)? Do all
+tool failures become observations? Is
+“answered” distinguished from “suc-
+ceeded”?
+171
+
+
+===== PAGE 180 =====
+
+Tools (Ch. 4).
+Is each tool necessary
+and distinct? Do outputs serve the next
+decision, and are they bounded? Are
+errors instructive? Is each tool’s effect
+class declared?
+Context (Ch. 5).
+What does the model
+see at step 1 and at step 50? Is the pre-
+fix stable for caching? How is growth
+controlled, and is information removal
+recoverable?
+Retrieval and memory (Ch. 6).
+How
+does the agent find what it needs? Is
+retrieval quality measured separately?
+What is written to memory, with what
+provenance, and how is it corrected?
+Control (Ch. 7).
+What verifies
+progress? Is “done” checkable? Can
+work survive a context reset or crash?
+Are external effects idempotent or
+reconciled?
+172
+
+
+===== PAGE 181 =====
+
+Composition (Ch. 8).
+If several agents
+are used, what does each see, and could
+one agent with better context do as well
+at lower cost?
+Safety (Ch. 9).
+Which legs of the lethal
+trifecta are present? What does the gate
+allow without asking? What bounds the
+effects of executed code? Are approvals
+specific to the exact action?
+Evaluation (Ch. 10).
+Is there a suite,
+built from real tasks and failures, with
+outcome-based graders? Does it include
+adversarial cases? Are results reported
+with uncertainty, cost and the metric that
+matches use?
+11.3 Operating an agent over time
+Its most important component is sup-
+plied by someone else, on their schedule.
+173
+
+
+===== PAGE 182 =====
+
+Version the whole configuration:
+model and settings, prompt, tools,
+context and gate policies, harness code.
+Change one element at a time, evaluate
+every change, and tag traces with the
+version.
+Roll out gradually,
+watching cost, la-
+tency, steps and tool errors, which often
+move before success rates.
+Learn from incidents:
+keep the trace,
+find the component that allowed the
+failure, fix it, add the case to the suite.
+Reverting changes future behavior, not
+effects already caused.
+Revisit the harness when models
+change.
+Scaffolding for a weaker
+model can hold back a stronger one;
+each upgrade is a chance to remove
+structure and let the suite judge [14].
+Harnesses should get simpler over time,
+174
+
+
+===== PAGE 183 =====
+
+not only larger. The relation runs both
+ways. The strongest models do best with
+the simplest harness, while a cheaper or
+open-weight model (one whose weights
+are published) may need the structure a
+strong one no longer does, and a cheaper
+model in a better harness can be the
+economical choice [79]. Which pairing
+wins is a measurement, not a slogan.
+11.4 Where to go next
+In practice you may use an off-the-shelf
+harness: provider agent SDKs with built-
+in tools, context management, permis-
+sions and subagents; graph-based work-
+flow frameworks with checkpointing;
+managed services that run the loop and
+sandbox. The agent map applies to all:
+ask what each does for every component,
+and where it lets you plug in. Table 11.2
+shows how differently three open-source
+coding harnesses answer those questions,
+with the same model inside [79].
+175
+
+
+===== PAGE 184 =====
+
+Table 11.2. Three open-source coding harnesses and
+their design choices, as described in late 2026. Each is a
+different answer to the questions of Chapters 4, 5 and 9.
+mini-SWE-
+agent
+OpenHands
+Pi
+tools
+a shell only
+shell, editor,
+browser
+read, write,
+edit, shell by
+default
+context
+linear history,
+everything
+appended
+event stream,
+context rebuilt
+from events
+tree with
+branching
+and rollback
+shell
+new process
+per command
+persistent ter-
+minal
+working ses-
+sion
+gate
+none; run in a
+sandbox
+configurable
+none; runs as
+its process
+For further reading, the engineering
+articles cited throughout, especially
+those on building effective agents [4],
+writing tools [11], context engineer-
+ing [7], long-running harnesses [8] and
+evaluations [13], are short and practical.
+For the research foundations, start with
+ReAct [82], SWE-agent [80] and the
+CoALA framework [65]; for security,
+the design-patterns paper [16] and
+CaMeL [22].
+176
+
+
+===== PAGE 185 =====
+
+The field moves quickly, and specific
+products and numbers in this book will
+date. The structure should not: a stochas-
+tic policy, a harness that decides what it
+sees and what it may do, an environment
+that answers back, and measurements
+that tell you whether the whole is getting
+better.
+177

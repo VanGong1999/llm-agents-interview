@@ -1,0 +1,358 @@
+
+
+===== PAGE 112 =====
+
+Chapter 7
+Control: verification,
+planning and long horizons
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. We return to the loop, now for tasks that take
+many steps or outlast one context window. The tools are
+verification, explicit plans, stopping rules, progress records
+and durable state.
+7.1 Three remedies for long
+horizons
+Without feedback, success decays like
+𝑟𝑇. Three remedies fight the decay: ver-
+ification raises 𝑑; decomposition shortens
+the effective horizon, since checked mile-
+104
+
+
+===== PAGE 113 =====
+
+stones behave like several short tasks;
+and durable state keeps progress through
+interruptions, context resets and crashes.
+7.2 Verification: the
+generator–verifier gap
+Checking a solution is often much easier
+than producing one, and agents exploit
+this by alternating generation with verifi-
+cation (Figure 7.1).
+propose / edit
+verify
+done
+candidate
+failure details
+passes
+verifiers, strongest first:
+1. deterministic checks (types, schema)
+2. executable tests, ground truth
+3. model-based judges with rubrics
+4. self-critique without new evidence
+Figure 7.1. The verify–repair loop. The verifier’s output
+is an observation like any other. The stronger the ver-
+ifier, the more the loop behaves like search guided by
+a reliable signal; a weak verifier lets errors through or
+sends the agent chasing false alarms.
+Deterministic checks (types, schemas, re-
+computed numbers) are cheap and re-
+105
+
+
+===== PAGE 114 =====
+
+liable for what they check. Tests check
+behavior, up to their coverage; they are
+why coding agents work. Model judges
+check what no program can, but must
+be validated (Chapter 10). Self-critique
+without new evidence is weakest; reflec-
+tion helps most when grounded in an
+external signal such as a failing test [64].
+Controlled tests confirm it. Asked to re-
+view and correct their own answers with
+no new information, capable models
+got worse on arithmetic and common-
+sense benchmarks [30], while a critic
+that could run code and search did im-
+prove them [26]. Reasoning models now
+do much of this reflection inside their
+own thinking, which is a reason to mea-
+sure before adding an explicit reflection
+step to the loop.
+Two rules follow. Give the agent verifica-
+tion tools and tell it to use them. And make
+“done” checkable: “make test_stats.py
+pass without modifying the tests” can be
+106
+
+
+===== PAGE 115 =====
+
+verified and graded; the last clause blocks
+the shortcut of editing the test.
+Without a verifier for the final product,
+verify intermediate ones: each number
+against a calculation, each citation against
+retrieved sources.
+7.3 Planning
+Capable models plan implicitly, which
+suﬀices for short tasks. For longer ones
+an explicit plan, an artifact the agent main-
+tains, decomposes the task into verifiable
+milestones, keeps the objective visible
+at the end of the context, and can be
+reviewed by a human before an hour is
+spent.
+A to-do tool (steps with statuses, up-
+dated as work proceeds and shown to
+the user) is simple and effective. Plans
+must be revisable; a fixed plan is a work-
+flow. Plan-then-execute, fixing the plan
+before any tool output, is less adaptive
+107
+
+
+===== PAGE 116 =====
+
+but has a security benefit (Chapter 9).
+A plan can also be compiled. ReWOO has
+the model write the whole sequence of
+tool calls before any is executed, with
+placeholders (“the result of step 2”)
+connecting outputs to inputs; a worker
+runs the steps with no further model
+calls, and one final call composes the an-
+swer from the evidence [77]. LLMCom-
+piler goes further: the plan is a graph of
+steps and their dependencies (a directed
+acyclic graph), independent steps run
+in parallel, and a failed check triggers
+replanning [40] (Figure 7.2). Both used
+fewer tokens than ReAct at equal or bet-
+ter accuracy, because the model does not
+re-read the growing history at every step.
+Code as the action language (Chapter 4)
+subsumes the idea, since a program is
+a plan with variables, and current mod-
+els issue several independent tool calls
+in one reply for the same reason. What
+survives is the principle: when steps are
+108
+
+
+===== PAGE 117 =====
+
+independent, decide them together and
+run them concurrently.
+Step by step (ReAct)
+think
+search A
+think
+search B
+think
+compute
+three model calls, each re-reading the whole history
+Plan, then execute as a graph
+plan
+search A
+search B
+compute
+answer
+two model calls; the searches run concurrently
+Figure 7.2. Step-by-step execution against a compiled
+plan. Above, each action waits for the previous observa-
+tion and the history is re-read at every step. Below, one
+call plans a graph of steps whose independent branches
+run concurrently, and one call composes the answer.
+Fewer model calls, fewer tokens, less latency; less adap-
+tivity if the plan was wrong.
+7.4 Stopping
+The agent should stop on the checkable
+definition of done, or stop and report
+when blocked; saying that “I could not
+complete this because…” is acceptable
+reduces fabricated workarounds.
+109
+
+
+===== PAGE 118 =====
+
+The harness enforces budgets, set from
+data (a high percentile of successful
+runs). Exhausted budgets are diagnostic:
+repeated identical calls suggest an un-
+helpful error or missing stop condition;
+wandering suggests a context or retrieval
+problem.
+7.5 Beyond one context window
+Tasks needing hours and many context
+windows require that a fresh session
+can pick up where the last left off. An-
+thropic’s harness for long-running cod-
+ing agents is a clear template [8] (Fig-
+ure 7.3).
+110
+
+
+===== PAGE 119 =====
+
+Initializer
+set up, write
+goal list
+Session 1
+one goal,
+verify
+Session 2
+one goal,
+verify
+…
+Store: goal list with pass/fail status ⋅progress
+notes ⋅version-control history ⋅startup script
+fresh context each session
+Figure 7.3. A harness for work spanning many sessions.
+An initializing session sets up the environment and a
+structured list of goals. Each later session starts with a
+fresh context, reads the progress notes, the goal list and
+the version-control log, makes one increment of verified
+progress, and records it before ending.
+The ingredients transfer. A goal list, items
+marked passing only after verification,
+prevents premature victory. Progress notes
+are a deliberate compaction by the outgo-
+ing agent. Version control logs changes and
+allows reverts. A startup routine verifies
+the inherited state. One goal per session
+keeps contexts focused. All are memory
+written by the agent for its successor.
+111
+
+
+===== PAGE 120 =====
+
+7.6 Durable state and side effects
+Machinery fails too: processes crash,
+calls time out. Production harnesses per-
+sist an append-only event log of every
+reply, call and observation, from which
+a run can be inspected and resumed
+(the companion’s jsonl_logger is the
+simplest version).
+Resumption is easy for reads and subtle
+for writes: if a request was sent but the
+response never recorded, did the effect
+happen (Figure 7.4)?
+proposed
+recorded
+pending
+sent
+done
+unknown
+ack
+timeout,
+crash
+check
+destination
+Figure 7.4. States of an action with side effects. Record-
+ing pending before execution makes a crash visible. A
+lost acknowledgement leads to unknown, which must be
+resolved by checking the destination, never by blindly
+retrying.
+An idempotency key honored by the desti-
+112
+
+
+===== PAGE 121 =====
+
+nation makes retries harmless; otherwise
+the harness must reconcile by querying
+the destination before retrying. An unac-
+knowledged external effect is unknown
+until the destination says otherwise.
+Checkpointing frameworks resume the
+loop but cannot resolve this for you.
+Two further pieces of machinery help.
+Some harnesses keep the history as a tree
+rather than a list: a session can return to
+an earlier point and branch, so a wrong
+turn is undone without losing what was
+learned on the way [79]. And durable-
+execution frameworks from ordinary dis-
+tributed systems, which record every ac-
+tivity, retry failed ones with backoff and
+keep the full execution history, are in-
+creasingly used to run agent steps; they
+supply the pending records and retries
+of Figure 7.4 as infrastructure rather than
+as code you write.
+113
+
+
+===== PAGE 122 =====
+
+Summary
+• Fight compounding error with ver-
+ification (raise 𝑑), decomposition
+(shorten the effective horizon) and
+durable state (keep progress).
+• Prefer strong verifiers: deterministic
+checks and tests over model judges,
+and model judges over unaided self-
+critique. Make “done” checkable.
+• Explicit plans help on long tasks:
+they decompose, keep the goal visi-
+ble, and can be reviewed; they must
+be revisable. Independent steps can
+be planned together and run concur-
+rently.
+• Stop on a checkable criterion or when
+blocked; set budgets from data.
+• Multi-session work needs a goal list,
+progress notes, version control and a
+startup check. Side effects need pend-
+ing records and idempotency or rec-
+114
+
+
+===== PAGE 123 =====
+
+onciliation.
+How this connects
+Verifiers are the same objects as evalu-
+ation graders (Chapter 10); building
+one serves both purposes. Decomposi-
+tion leads naturally to delegating pieces
+to other agents (Chapter 8). Plan-then-
+execute reappears as a defense against
+injection (Chapter 9).
+Exercises
+7.1 The bug-fixing agent is graded by
+whether python -m unittest passes.
+List two ways an agent could pass with-
+out fixing the bug, and for each, a change
+to the task, the tools or the grader that
+prevents it.
+7.2 A publishing tool times out after
+sending a report. The destination sup-
+ports idempotency keys, but the tool
+generated a fresh key on each call. What
+115
+
+
+===== PAGE 124 =====
+
+happens if the agent retries, and how
+should the key be chosen?
+116

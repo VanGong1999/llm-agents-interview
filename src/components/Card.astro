@@ -1,0 +1,12 @@
+---
+import {topics} from '../data/content';
+import {url} from '../lib/urls';
+const {article:a,visual=false}=Astro.props;
+const topic=topics.find(t=>t.id===a.topic);
+---
+<article class="article-card" data-item data-topic={a.topic} data-topic-ids={JSON.stringify(a.topicIds||[a.topic])} data-tags={JSON.stringify(a.tags)} data-level={a.level} data-search={`${a.title} ${a.summary} ${a.tags.join(' ')} ${topic.name}`}>
+  <div class="card-content"><div class="card-meta"><span>{a.type}</span>{a.isCollection?<span class="collection-badge">{a.sourceCount} 份文档</span>:<span class="demo-badge">示例内容</span>}<button class="bookmark" type="button" data-save={a.id} aria-label={`收藏：${a.title}`} aria-pressed="false">☆</button></div>
+  <h3><a href={url(`articles/${a.id}/`)}>{a.title}</a></h3><p>{a.summary}</p>
+  <div class="tags">{a.tags.slice(0,3).map(tag=><a href={url(`library/?topic=${a.topic}&tag=${encodeURIComponent(tag)}`)}>{tag}</a>)}</div>
+  <footer><span>{a.isCollection?`${a.sourceCount} 份资料`: `${a.minutes} 分钟阅读`} <b>·</b> {a.level}</span><a href={url(`articles/${a.id}/`)}>{a.isCollection?'查看目录 ↗':'1 条精华 ↗'}</a></footer></div>
+</article>

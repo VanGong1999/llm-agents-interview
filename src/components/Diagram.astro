@@ -1,0 +1,10 @@
+---
+const { kind='loop', compact=false } = Astro.props;
+const variants={loop:['接收任务','规划步骤','调用工具','观察结果'],tools:['输入校验','权限检查','工具执行','结构化结果'],rag:['查询问题','召回候选','重排过滤','引用回答'],memory:['提取信息','范围校验','写入记忆','按需读取'],eval:['测试样本','运行任务','评分检查','对比基线']};
+const steps=variants[kind]||variants.loop;
+---
+<div class:list={['diagram',kind,{compact}]} data-diagram data-steps={JSON.stringify(steps)}>
+  <div class="diagram-top"><span><i></i> {kind==='rag'?'RETRIEVAL PIPELINE':kind==='memory'?'KNOWLEDGE LIFECYCLE':kind==='eval'?'EVALUATION LOOP':'AGENT WORKFLOW'}</span><span>交互示意</span></div>
+  <div class="diagram-flow">{steps.map((step,i)=><><div class:list={['flow-node',{active:i===0}]} data-node={i}><span class="node-symbol">{['◎','⌘','◈','✓'][i]}</span><strong>{step}</strong><small>0{i+1}</small></div>{i<3&&<span class="flow-arrow">→</span>}</>)}</div>
+  <div class="diagram-bottom"><span data-stage>01 / {steps[0]}</span><div><button type="button" data-reset aria-label="重置图解">↺</button><button type="button" data-step aria-label="图解下一步">下一步 →</button><button type="button" data-play aria-label="播放图解">播放 ▷</button></div></div>
+</div>

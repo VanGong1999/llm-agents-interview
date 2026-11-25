@@ -1,0 +1,548 @@
+
+
+===== PAGE 158 =====
+
+Chapter 10
+Evaluation and
+observability
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. We build the evaluator 𝑅and the instru-
+ments around it. Every earlier chapter proposed design
+choices; this chapter supplies the method for deciding
+whether a choice actually helps.
+10.1 Evaluations drive the
+engineering loop
+For most of its history, software was un-
+derstood by reading it: what a program
+does follows from its text. A program
+150
+
+
+===== PAGE 159 =====
+
+whose steps a model chooses cannot be
+read this way, and the code such pro-
+grams write is in practice too plentiful
+to read. Both are understood inductively,
+from behavior on inputs, as a learned
+model is; outputs, not source, become
+the source of truth [79]. That is why this
+chapter exists.
+Agent behavior is stochastic and depends
+on every component, so a few runs mis-
+lead: the prompt edit that fixes one case
+may break three others. Reliable teams
+converge on the loop of Figure 10.1, with
+an evaluation suite in the role of a test
+suite [13].
+151
+
+
+===== PAGE 160 =====
+
+run agent
+on tasks;
+collect traces
+error analysis:
+read failures,
+group them
+change one
+component
+(tools, 𝜙, 𝑔,
+prompt, model)
+run eval suite;
+compare
+with baseline
+ship
+better
+add new failures
+to the suite
+Figure 10.1. The development loop. Read traces to find
+failures, form a hypothesis about which component
+caused them, change that component, and run the eval-
+uation suite before shipping. The suite grows with every
+new failure mode discovered in production.
+Error analysis is most often skipped and
+pays best. Sort twenty failed transcripts
+by cause: never found the file (retrieval),
+misread a truncated output (tools), de-
+clared success untested (control), fol-
+lowed an injection (safety). The causes
+map onto components of the agent map,
+which says what to change.
+10.2 Anatomy of an evaluation
+A task is an instruction plus an initial
+state; a trial is one run on it; the trace
+records it; the outcome is the final state
+152
+
+
+===== PAGE 161 =====
+
+and answer; a grader scores it; a metric
+aggregates (Figure 10.2).
+task:
+instruction
++ initial
+state
+trial: run
+agent
+outcome:
+final state,
+answer
+trace: calls,
+tokens, time
+grader
+→score
+𝑛trials
+Figure 10.2. Anatomy of an evaluation. Each trial starts
+from a fresh copy of the task’s environment. Graders
+look primarily at the outcome, the state the agent left
+behind, rather than at what the agent said it did.
+Two rules prevent most evaluation bugs:
+isolate trials on fresh copies of the environ-
+ment, and grade outcomes, not narratives.
+The companion’s runner does both:
+def run_trials(task_dir, agent, grade, n=5):
+"""Run the agent n times on fresh copies of
+the task; grade the final state, not the
+transcript."""
+outcomes = []
+for _ in range(n):
+with tempfile.TemporaryDirectory() as tmp:
+work = Path(shutil.copytree(
+task_dir, Path(tmp) / "repo"))
+agent(work)
+outcomes.append(grade(work))
+return outcomes
+Grading the path (“ran tests before edit-
+153
+
+
+===== PAGE 162 =====
+
+ing”) helps diagnosis but penalizes valid
+alternatives; it should rarely decide pass
+or fail.
+A task is thus a package of three parts:
+the instruction, the environment (a script or
+image that builds the initial state) and the
+verifier, the grader’s code and data [13].
+A fourth part, a reference solution, is not
+needed to score agents but is the cheap-
+est way to find a broken task: run as an
+agent that executes a scripted solution (an
+oracle), it must pass, or the verifier or envi-
+ronment is wrong. Grading should run in
+a fresh environment: copy the agent’s arti-
+facts out, discard its container with what-
+ever processes it left running, and test
+in a clean one (Figure 10.3); otherwise
+an agent can leave a background process
+or a patched test runner for the grader
+to meet. Finally the instruction and ver-
+ifier must align: every requirement in
+the instruction maps onto a check and
+every check onto a requirement, so that
+154
+
+
+===== PAGE 163 =====
+
+an agent that does exactly what was
+asked scores full marks. Over-specified
+instructions break the alignment and
+leak the solution, so write the minimum
+that removes ambiguity, in the register a
+user would actually type [79].
+task package
+instruction ⋅
+environment
+⋅verifier
+⋅solution
+agent
+environment
+fresh;
+agent or
+oracle runs
+artifacts
+files, diffs,
+outputs
+verifier
+environment
+fresh;
+tests run
+copy out
+copy in
+torn down after the run,
+with any processes it left
+sees artifacts only,
+never the agent’s processes
+Figure 10.3. A task package and the path of one trial.
+The agent (or the oracle solution, to validate the task)
+runs in a fresh environment; its artifacts are copied to a
+second fresh environment where the verifier runs. The
+verifier never meets the agent’s processes.
+10.3 Graders
+Code graders
+check outcomes pro-
+grammatically (hidden tests, database
+rows, tolerances, unmodified files):
+cheap, fast, objective. Their weakness
+is coverage, so include checks against
+known shortcuts (Exercise 1). A verifier
+is a classifier of outcomes and has both
+155
+
+
+===== PAGE 164 =====
+
+error types. False negatives, a correct so-
+lution the checks reject, are as damaging
+as false positives, and both change as
+models change: newer models find new
+shortcuts and also new valid solutions
+that an old verifier never anticipated.
+Model graders
+apply a rubric to what
+code cannot judge, such as faithfulness
+or completeness [87]. They favor longer
+answers, first-listed options and out-
+puts like their own, and drift with their
+model. Calibrate them against hand-
+graded samples; specific criteria (“cites
+a source for every number”) agree with
+humans far better than holistic scores. A
+model grader is itself a system to evaluate:
+build a small benchmark of hand-graded
+cases for it and track its agreement over
+time.
+Human graders
+are the reference and
+the source of calibration data; use them
+156
+
+
+===== PAGE 165 =====
+
+to validate graders and review samples.
+10.4 Statistics of stochastic agents
+A trial on task 𝑖is a Bernoulli variable
+with success probability 𝑝𝑖; different
+questions need different functions of 𝑝𝑖.
+pass@𝑘and pass𝑘.
+If any of 𝑘attempts
+may succeed (a verifier or human picks),
+the quantity is 1 −(1 −𝑝𝑖)𝑘; if the agent
+must succeed every time, it is 𝑝𝑘
+𝑖. These are
+pass@𝑘and pass𝑘[18, 83]. For 𝑝𝑖= 0.7,
+pass@3 = 0.973 but pass3 = 0.343 (Fig-
+ure 10.4).
+157
+
+
+===== PAGE 166 =====
+
+𝑘
+1
+2
+4
+6
+8
+10
+0.5
+1
+pass@𝑘= 1 −(1 −𝑝)𝑘
+pass𝑘= 𝑝𝑘
+Figure 10.4. pass@𝑘and pass𝑘for a task with per-trial
+success probability 𝑝= 0.7. Retrying with a reliable
+selector makes the agent look nearly perfect; requiring
+consistency makes it look poor. Report the one that
+matches how the agent will be used.
+With 𝑛trials per task of which 𝑐succeed,
+unbiased estimators arê
+pass@ 𝑘= 1 −(𝑛−𝑐
+𝑘)
+(𝑛
+𝑘) ,̂
+pass𝑘= (𝑐
+𝑘)
+(𝑛
+𝑘),
+for 𝑘≤𝑛(a random 𝑘-subset of trials
+contains a success, or only successes),
+averaged over tasks:
+158
+
+
+===== PAGE 167 =====
+
+def pass_at_k(n: int, c: int, k: int) -> float:
+"""P(some of k trials pass); c of n passed."""
+return 1 - comb(n - c, k) / comb(n, k)
+def pass_hat_k(n: int, c: int, k: int) -> float:
+"""P(all k trials succeed); c of n passed."""
+return comb(c, k) / comb(n, k)
+Uncertainty.
+With per-task scores 𝑥𝑖, re-
+port̄ 𝑥with standard error 𝑠/
+√
+𝑁across
+tasks. More trials per task reduce model
+noise but cannot replace more tasks,
+which vary far more.
+Comparing agents.
+Run both on the
+same tasks and analyze differences
+𝑑𝑖= 𝑥𝐵
+𝑖−𝑥𝐴
+𝑖; pairing removes task
+variation. For unpaired binary outcomes
+near rate 𝑝, making a difference Δ equal
+two standard errors needs
+𝑁≈8 𝑝(1 −𝑝)
+Δ2
+,
+about 670 tasks for 𝑝= 0.7, Δ = 0.05.
+Pairing helps, but small suites detect
+only large effects.
+159
+
+
+===== PAGE 168 =====
+
+10.5 Building a suite, and reading
+benchmarks
+Start with twenty to fifty real tasks, es-
+pecially observed failures, each with an
+unambiguous criterion [13]. Keep capa-
+bility tasks (progress) and regression tasks
+(protection); include adversarial cases
+scored for success and safety; hold some
+tasks out to avoid overfitting.
+Accuracy is one dimension of quality.
+Consistency asks whether repeated runs
+reach the same outcome, which pass𝑘
+measures; robustness asks how a small, ir-
+relevant perturbation of the task changes
+the outcome; predictability asks whether
+failures are legible and recoverable. A
+leaderboard that scored agents on all of
+these found no relation between accu-
+racy rank and reliability rank [35]. The
+most capable agent is not the most de-
+pendable one, so a suite should include
+perturbed variants of its tasks and report
+160
+
+
+===== PAGE 169 =====
+
+consistency beside accuracy.
+Tasks are software and have bugs. Before
+a suite is trusted, run every task through
+quality checks (Figure 10.5) [79]: static
+checks for misconfiguration; a model
+judge that maps each requirement in the
+instruction to a check in the verifier; the
+oracle solution, which must pass; frontier
+agents (the most capable current mod-
+els), whose traces show whether the task
+is hard for the intended reason or be-
+cause a package is broken; and an agent
+told to cheat, which finds the shortcuts
+the grader missed. Then version tasks. A
+fix to the verifier means regrading stored
+trials without rerunning agents; a fix to
+the reference solution needs no rerun
+at all; any change the agent can see, to
+the instruction, environment or tools,
+invalidates past trials. Keep every trial’s
+trace, not only its score: most of what a
+suite teaches is in the traces, and a pub-
+lished number without its trials cannot
+161
+
+
+===== PAGE 170 =====
+
+be interrogated.
+new task
+static checks
+misconfiguration
+model judge
+alignment of
+instruction
+and verifier
+oracle run
+must pass
+frontier and
+cheating agents
+traces reviewed
+versioned task
+agent-visible
+change: rerun
+verifier fix:
+regrade
+metadata: reuse
+failures found in the wild flow back
+Figure 10.5. Quality assurance and versioning of a task.
+Four kinds of check run before a task enters the suite;
+failures found later in the wild flow back. Versioning
+records which kind of change was made, which decides
+whether stored trials are rerun, regraded or reused.
+(After Harbor, an evaluation framework described in
+CS329Z.)
+Once a suite exists it can serve as
+an objective, not only as a test. The
+components this book has treated as
+hand-written, instructions, tool descrip-
+tions and worked examples placed in the
+prompt, can be searched automatically:
+keep traces that scored well as examples,
+162
+
+
+===== PAGE 171 =====
+
+have a model read failing traces and
+propose a rewritten instruction, and
+accept a candidate only if a held-out
+set improves [38, 3]. The discipline is
+the one evaluation already demands,
+separate training, development and test
+tasks, and the risk is the one graders
+already have, a prompt that games a
+weak metric. Automatic optimization
+makes a good suite more valuable and a
+bad one more dangerous.
+Public benchmarks help choose models:
+SWE-bench (real GitHub issues) [32],
+𝜏-bench (tool use and consistency) [83],
+Terminal-Bench, OSWorld and GAIA [67,
+76, 51]. METR measures the human-time
+length of tasks agents complete with
+50% probability, a horizon that doubled
+roughly every seven months over 2019–
+2025, faster in recent updates [42]. Cau-
+tions: results depend on the harness;
+benchmarks leak and saturate; and accu-
+racy without cost is incomplete [34].
+163
+
+
+===== PAGE 172 =====
+
+10.6 Observability
+After deployment, the instrument is the
+trace: a tree of spans for the run, each
+model call (tokens, latency, stop reason)
+and each tool call (arguments, result,
+duration). OpenTelemetry’s generative-
+AI conventions let one toolchain collect
+traces from any framework [54]. Traces
+yield the operating metrics: success prox-
+ies, cost, latency and steps per task, tool
+errors, approvals.
+Dashboards summarize; transcripts ex-
+plain. Read failures and a sample of
+successes regularly: no aggregate will
+tell you the agent has started deleting
+failing tests. Every surprising transcript
+is a candidate for the suite.
+Summary
+• Evaluations are the agent’s test suite:
+run them on every change to tools,
+context, policy, prompt or model.
+164
+
+
+===== PAGE 173 =====
+
+• A task is an instruction plus an ini-
+tial state; isolate trials and grade out-
+comes, not narratives.
+• Prefer code graders; calibrate model
+graders against human judgments;
+use humans for reference and review.
+• pass@𝑘and pass𝑘answer different
+questions and diverge fast. Report
+uncertainty, compare agents on paired
+tasks, and remember that small suites
+detect only large effects.
+• A task is an instruction, an environ-
+ment and a verifier, aligned one to
+one, with a reference solution to
+prove the task itself works. Grade in a
+fresh environment.
+• Build suites from real failures, include
+adversarial and perturbed cases, hold
+tasks out, check and version every
+task. Read benchmarks with cost and
+harness in mind.
+165
+
+
+===== PAGE 174 =====
+
+• Trace every call; read transcripts;
+keep every trial. A trusted suite can
+then drive automatic optimization of
+prompts and tool descriptions.
+How this connects
+Graders are verifiers (Chapter 7) used
+for measurement instead of repair. Error
+analysis assigns failures to the compo-
+nents of Chapters 4–9. Chapter 11 puts
+the pieces together and gives a checklist
+for reviewing an agent design.
+Exercises
+10.1 An agent runs 𝑛= 5 trials on a task
+and succeeds in 𝑐= 3. Computê pass@ 3
+and̂ pass3. Which would you report for a
+code-review assistant that proposes one
+fix that a human then accepts or rejects?
+10.2 Agent B beats agent A by four points
+(72% vs 68%) on a 100-task suite, one
+trial per task, unpaired. Is the difference
+166
+
+
+===== PAGE 175 =====
+
+distinguishable from noise at roughly
+two standard errors? What would you
+change about the experiment?
+10.3 After a suite has been run (five tri-
+als per task, traces stored), three changes
+are proposed: (a) a hidden test is added
+to a task because an agent passed by
+special-casing the sample input; (b) a
+task’s instruction is shortened because
+it gave away the location of the bug; (c)
+the reference solution of a task is fixed
+because it had stopped passing. For each,
+say which stored results remain valid,
+what must be redone, and why.
+167

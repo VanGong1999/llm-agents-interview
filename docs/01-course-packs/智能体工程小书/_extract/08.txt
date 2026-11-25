@@ -1,0 +1,536 @@
+
+
+===== PAGE 125 =====
+
+Chapter 8
+Composition: workflows
+and multi-agent systems
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. We change the structure of the loop itself:
+chaining model calls into fixed workflows, and letting
+agents delegate to other agents. Each pattern is a different
+answer to “who decides the next step, and what does each
+part see?”
+8.1 Fixed and dynamic
+composition
+This chapter fills in the spectrum of
+Chapter 1: workflows, whose structure
+the programmer fixes, and multi-agent
+117
+
+
+===== PAGE 126 =====
+
+systems, in which agents direct other
+agents at run time. They compose: a
+workflow step can be an agent, and an
+agent can call a workflow.
+8.2 Five workflow patterns
+A small number of patterns cover most
+workflows in practice [4]. Figure 8.1
+draws them.
+1. Chaining
+LLM
+gate
+LLM
+out
+2. Routing
+LLM
+A
+B
+out
+3. Parallelization
+split
+LLM
+LLM
+LLM
+merge
+out
+4. Orchestrator–workers
+orch.
+W
+W
+W
+synth.
+5. Evaluator–optimizer
+generator
+evaluator
+out
+draft
+feedback
+ok
+Figure 8.1. Five workflow patterns. Boxes are model
+calls (blue), code (green) or outputs (grey). In each, the
+programmer fixes the structure; the model fills in the
+content.
+118
+
+
+===== PAGE 127 =====
+
+Chaining
+runs a fixed sequence of
+calls with programmatic checks between
+them: outline, check coverage, write.
+Routing
+classifies an input and dis-
+patches it to a specialized handler with
+a focused prompt, toolset or model. A
+common use is cost: a first call rates a
+problem’s diﬀiculty and sends easy ones
+to a small model.
+Parallelization
+runs independent parts
+side by side (sectioning) or the same task
+several times with aggregation (voting).
+Sectioning also lets each call attend to
+one thing: a safety classifier can run be-
+side the main generation and suppress
+the reply if it objects, and a ten-item
+rubric can be scored as ten focused calls
+at the latency of one.
+Orchestrator–workers
+lets a model
+decompose the task at run time and syn-
+119
+
+
+===== PAGE 128 =====
+
+thesize workers’ results; when workers
+are agents, it is a multi-agent system.
+Evaluator–optimizer
+is the verify–
+repair loop of Chapter 7 with a model
+as verifier; it works when the evaluator
+reliably tells better from worse.
+8.3 How much does voting buy?
+Voting deserves a calculation because its
+benefit is easy to overestimate. Suppose
+each of 𝑛runs (odd 𝑛) answers correctly
+with probability 𝑝> 1/2, independently.
+The majority is correct with probability
+𝑃maj(𝑛, 𝑝) =
+𝑛
+∑
+𝑘=(𝑛+1)/2
+(𝑛
+𝑘)𝑝𝑘(1−𝑝)𝑛−𝑘,
+which tends to 1 as 𝑛grows (Con-
+dorcet’s jury theorem). With 𝑝= 0.7,
+three votes give 0.784, five give 0.837
+and eleven give 0.922. Self-consistency,
+majority voting over sampled reasoning
+chains, exploits exactly this [68].
+120
+
+
+===== PAGE 129 =====
+
+The catch is independence. Samples from
+one model share its blind spots: a mis-
+leading passage tends to mislead every
+sample, and perfectly correlated voters
+gain nothing. Voting helps with idiosyn-
+cratic errors (slips) and not systematic
+ones (misunderstanding the task). Di-
+verse voters (different prompts, evidence
+or models) are usually worth more than
+extra samples. Voting also needs compa-
+rable answers.
+Diversity must be arranged; it does not
+arise by itself. Asked for a joke about cof-
+fee, several current models return the
+same joke, and asked for a metaphor in-
+volving time, most say a river [86]. The
+same conformity appears among agents.
+A group of agents each asked to build
+something impressive mostly chose ray
+tracers or compilers, and agents shar-
+ing a repository chose the same branch
+name [79]. Assigning distinct perspec-
+tives, evidence or models buys more
+121
+
+
+===== PAGE 130 =====
+
+than extra samples do.
+8.4 Subagents are tools
+Now let agents delegate. The simplest
+and most useful form needs no new
+machinery: a subagent is a tool whose
+implementation runs another agent loop.
+def subagent_tool(model, tools, max_steps=15):
+readonly = [t for t in tools
+if t.effect == "read"]
+def investigate(question: str) -> str:
+res = run(question, model, readonly,
+max_steps=max_steps,
+system="Investigate; report "
+"findings with file:line. "
+"Do not modify anything.")
+return (res.answer or
+f"(helper stopped: {res.status})")
+return Tool(
+"investigate",
+"Delegate a self-contained question to a "
+"read-only helper with a fresh context. "
+"Returns a short report.",
+{"question": {"type": "string"}},
+investigate)
+Calling investigate starts a fresh loop
+with only the question and the read-only
+tools; its short report becomes the par-
+ent’s observation (Figure 8.2).
+122
+
+
+===== PAGE 131 =====
+
+Parent context
+task, plan, edits
+report (200 tokens)
+Child context (fresh)
+12 files read
+40,000 tokens
+question
+report only
+Figure 8.2. A subagent as a context firewall. The child
+loop reads widely in its own context; only its short re-
+port crosses back. The parent’s context grows by the size
+of the report, not by the size of the reading. The child’s
+restricted toolset is enforced by construction.
+The pattern gives context isolation, special-
+ization (its own prompt, tools, perhaps
+a cheaper model) and containment: the
+child is read-only by construction, which
+the test suite checks.
+8.5 When multiple agents help,
+and when they hurt
+Multi-agent designs differ along three
+axes: orchestration, how the agents are
+run; communication, how they exchange
+information; and coordination, how they
+123
+
+
+===== PAGE 132 =====
+
+divide work and avoid treading on each
+other [79]. Four orchestration patterns
+cover most systems (Figure 8.3). Inde-
+pendent agents attempt the task sepa-
+rately and an aggregator picks or merges;
+it is parallelization with agents as the
+units. Centralized orchestration has one
+agent decompose, delegate and inte-
+grate, which is orchestrator–workers
+with a persistent manager. A decentral-
+ized swarm has no manager: agents claim
+work from shared state (a to-do list, a
+ledger of tasks, a set of failing tests) and
+talk to one another. Hybrid systems keep
+a manager and let workers communicate
+directly. Cost and coordination overhead
+rise in that order.
+124
+
+
+===== PAGE 133 =====
+
+1. Independent
+A
+A
+A
+merge
+2. Centralized
+orch.
+A
+A
+A
+3. Decentralized swarm
+shared
+state
+A
+A
+A
+4. Hybrid
+orch.
+A
+A
+A
+Figure 8.3. Four orchestration patterns. Each agent
+(green) has its own context. 1: no communication, re-
+sults merged. 2: a manager delegates and integrates. 3:
+agents claim work from shared state and message one
+another. 4: a manager plus direct worker-to-worker links
+(red). Cost and coordination overhead rise from 1 to 4.
+Delegation costs tokens, and the parent
+must brief an agent with none of its con-
+text. Anthropic reported that its multi-
+agent research system substantially out-
+performed a single agent on its internal
+research evaluation, while using about
+fifteen times the tokens of chat, and that
+token usage explained most of the per-
+formance variance on a browsing bench-
+125
+
+
+===== PAGE 134 =====
+
+mark [9]: much of the gain was parallel
+computation, which pays off on valuable,
+breadth-first tasks.
+The failure mode is conflicting implicit
+decisions: subagents building parts of one
+artifact make choices others cannot see,
+and the parts do not fit. Cognition argued
+that for writing code a single agent with
+full context is often more reliable, and
+that split work needs shared context and
+prior decisions [19]. The reports agree
+once task structure is considered.
+Three later studies sharpen the picture.
+One ran a single agent and all four pat-
+terns above on the same tasks and found
+that a single agent with the strongest
+model beat every multi-agent arrange-
+ment for two model families and lost to
+a decentralized swarm for the third; by
+task, swarms won on a document-heavy
+finance task and lost badly on a plan-
+ning task where one coherent context
+126
+
+
+===== PAGE 135 =====
+
+mattered [41]. On paired coding tasks
+whose edits touch the same files, one
+agent doing both tasks usually beat two
+agents coordinating through chat, and
+the failures were specific: an agent not
+doing what it had promised, an agent
+treating announced work as not done,
+and agents failing to convey intent [39].
+A taxonomy built from traces of several
+multi-agent frameworks assigns almost
+half of failures to task specification and
+harness design, a third to inter-agent mis-
+alignment, and the rest to verification
+that ends the task too early or checks the
+wrong thing [17]. These categories are
+the error analysis of Chapter 10 applied
+to a team.
+127
+
+
+===== PAGE 136 =====
+
+Parallelize reading; serialize writ-
+ing. Delegate subtasks that gather
+information and can be summarized
+independently: searches, file surveys,
+literature reviews. Keep tasks that
+produce one coherent artifact, such as
+an edit across a codebase, under one
+agent with one context.
+8.6 Contracts between agents
+The task description is the child’s en-
+tire world: state the objective, output
+format, boundaries and budget, and ask
+for evidence (file and line, source ids).
+Treat the report as an observation, to be
+verified before it drives an irreversible
+action. Protocols such as Agent2Agent
+(A2A) standardize cross-organization
+delegation [1]; contracts and verification
+remain the designer’s job.
+Two forms of delegation are worth distin-
+guishing (Table 8.1). The subagent above
+128
+
+
+===== PAGE 137 =====
+
+is an agent as tool: the parent keeps con-
+trol, sends a specific input and receives a
+report. In a handoff, control itself transfers:
+the whole conversation moves to a spe-
+cialist, which answers the user from then
+on [53]. Handoffs suit a specialist that
+should own the rest of an interaction, as
+a billing agent takes over a support con-
+versation; tools suit bounded subtasks
+whose results the parent will combine.
+Table 8.1. Two ways to delegate.
+Agent as tool
+Handoff
+control
+stays with the
+parent
+transfers to the
+specialist
+context shared
+a specific input
+the whole conver-
+sation
+user’s next mes-
+sage goes to
+the parent
+the specialist
+typical use
+a bounded sub-
+task
+the rest of the
+interaction
+Coordination needs infrastructure. A task
+ledger, a shared list of tasks with status
+and owner, lets agents claim work and
+lets a stalled task be picked up by an-
+129
+
+
+===== PAGE 138 =====
+
+other; Magentic-One’s orchestrator keeps
+one beside a progress ledger that records
+whether each step advanced [25], and an
+ordinary issue tracker serves the same
+purpose for coding agents. Agents edit-
+ing one working copy interfere, so each
+gets its own worktree, a separate checkout
+on its own branch, and the branches are
+merged afterwards (Figure 8.4); isolation
+during execution is traded for merge
+conflicts at the end. Both are harness-
+level devices: a prompt tells agents to
+check the ledger and claim a task, and
+the shared repository enforces the rest.
+130
+
+
+===== PAGE 139 =====
+
+shared repository
+code ⋅task claims ⋅progress notes
+Agent 1
+own sandbox,
+own clone
+branch
+feature-a
+Agent 2
+own sandbox,
+own clone
+branch bugfix-b
+Agent 3
+own sandbox,
+own clone
+branch docs-c
+pull, push
+pull, push
+pull, push
+Figure 8.4. Worktree isolation. Each agent works in
+its own checkout on its own branch and claims tasks
+through files in the shared repository; branches are
+merged afterwards. Isolation during execution is traded
+for merge conflicts at the end. (After a compiler-building
+swarm described in CS329Z, Lecture 8.)
+Summary
+• Workflows fix the structure (chaining,
+routing, parallelization, orchestrator–
+workers, evaluator–optimizer); agents
+decide it at run time. They compose.
+• Majority voting helps when errors are
+independent; correlated errors erode
+the gain, so diversify voters.
+• A subagent is a tool that runs another
+loop: it isolates context, allows spe-
+cialization, and can be restricted by
+131
+
+
+===== PAGE 140 =====
+
+construction.
+• Multi-agent systems differ in orches-
+tration (independent, centralized,
+decentralized, hybrid), communica-
+tion and coordination, and trade many
+more tokens for parallel breadth. A
+strong single agent is the baseline
+to beat. Parallelize reading; serialize
+writing.
+• Delegate with an explicit contract
+and verify what comes back. Choose
+agent-as-tool for bounded subtasks
+and handoff when a specialist should
+own the interaction; coordinate
+through a task ledger and isolated
+worktrees.
+How this connects
+Subagents are the isolation remedy
+of Chapter 5 made concrete. Their
+restricted toolsets are an instance of
+least privilege (Chapter 9). Whether a
+132
+
+
+===== PAGE 141 =====
+
+multi-agent design beats a single agent
+is an empirical question for the methods
+of Chapter 10, with cost measured
+alongside quality.
+Exercises
+8.1 Compute the majority-vote accuracy
+for 𝑛= 5 independent voters with 𝑝=
+0.6. Then suppose that with probability
+0.3 a misleading input makes all five vot-
+ers wrong together, and otherwise they
+are independent with 𝑝= 0.75. What is
+the overall majority accuracy?
+8.2 The bug-fixing agent faces a reposi-
+tory of 2,000 files and a failure in an un-
+familiar module. Write the task descrip-
+tion it should send to an investigate
+subagent, including objective, output for-
+mat, boundaries and budget.
+8.3 A support system has a triage agent,
+a billing specialist and a technical spe-
+cialist. For each of the following, say
+133
+
+
+===== PAGE 142 =====
+
+whether the triage agent should use the
+specialist as a tool or hand off to it, and
+why: (a) looking up whether an invoice
+was paid; (b) a customer who wants to
+dispute three charges and discuss a re-
+fund; (c) checking whether a reported
+error message is a known bug.
+134

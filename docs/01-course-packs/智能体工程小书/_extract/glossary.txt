@@ -1,0 +1,107 @@
+
+
+===== PAGE 186 =====
+
+Glossary
+Agent. A program in which a model repeatedly
+chooses actions, the program executes them, and ob-
+servations inform later choices (Ch. 1).
+Agent map. The book’s diagram of an agent’s com-
+ponents: model, loop, context builder, gate, store,
+environment and evaluator (Figure 1.1).
+Compaction. Replacing conversation history by a
+model-written summary so a run can continue past
+the context window; lossy (Ch. 5).
+Context, context window. The tokens a model condi-
+tions on for one call; the window 𝑊is the maximum
+length (Ch. 5).
+Effect class. A tool’s declared kind of consequence:
+read, write, execute or external (Ch. 4).
+Embedding. A vector representation of text used for
+similarity search; similarity is a ranking signal, not
+evidence (Ch. 6).
+Evaluation (eval). A set of tasks, trials, graders and
+metrics for measuring agent behavior (Ch. 10).
+Gate. Harness code that decides whether a proposed
+action may run: allow, ask or deny (Ch. 9).
+Grader. A function from a trial’s outcome (and pos-
+sibly trace) to a score: code-based, model-based or
+human (Ch. 10).
+Handoff. Delegation in which control and the whole
+178
+
+
+===== PAGE 187 =====
+
+conversation transfer to another agent, as opposed to
+calling an agent as a tool (Ch. 8).
+Harness. Everything in an agent except the model:
+loop, tools, context builder, gate, store, logging
+(Ch. 1).
+Instruction–verifier alignment. The property that
+every requirement in a task’s instruction maps onto a
+check in its verifier and vice versa (Ch. 10).
+Idempotency key. An identifier sent with a request
+so that the destination can ignore duplicates, making
+retries safe (Ch. 7).
+KV cache. The per-token key and value vectors a serv-
+ing system stores during prefill so that decoding need
+not recompute them; reusable only for an unchanged
+prefix (Ch. 2).
+Lethal trifecta. Private data, untrusted content and
+external communication together; the precondition for
+exfiltration by injection (Ch. 9).
+MCP. The Model Context Protocol: a standard for
+exposing tools, resources and prompts to agent appli-
+cations (Ch. 4).
+Oracle solution. A scripted reference solution run
+as an agent to confirm that a task’s environment and
+verifier work (Ch. 10).
+Orchestration pattern. How the agents of a multi-
+agent system are run: independent, centralized, de-
+centralized or hybrid (Ch. 8).
+pass@𝑘, pass𝑘. Probability that at least one, or all, of
+𝑘independent trials succeed (Ch. 10).
+Policy. The model viewed as a map from context to a
+179
+
+
+===== PAGE 188 =====
+
+distribution over actions, 𝜋(⋅∣𝑐𝑡) (Ch. 1).
+Prompt caching. Provider-side reuse of computation
+for an unchanged request prefix, billed at a reduced
+rate (Ch. 2).
+Prompt injection. Instructions delivered through a
+channel meant for data, such as a document or tool
+output, attempting to steer the agent (Ch. 9).
+RAG. Retrieval-augmented generation: retrieving
+passages and placing them in the context before gener-
+ating (Ch. 6).
+Sandbox. An execution environment that confines file,
+network and process access regardless of what runs
+inside it (Ch. 9).
+Skill. A packaged procedure (instructions plus op-
+tional files) whose description is always visible and
+whose body is loaded on demand (Ch. 4).
+Store. Persistent information outside the context: files,
+indexes, memories, logs (Ch. 6).
+Subagent. An agent invoked as a tool by another
+agent, with its own context and toolset (Ch. 8).
+Task ledger. A shared list of tasks with status and
+owner from which agents claim work (Ch. 8).
+Tool. An operation exposed to the model by name,
+description and schema, implemented and executed
+by the harness (Ch. 4).
+Trace. The record of a run: model calls, tool calls,
+observations, tokens and timings (Ch. 10).
+Workflow. A composition of model calls and code
+whose structure the programmer fixes (Ch. 8).
+180
+
+
+===== PAGE 189 =====
+
+Worktree isolation. Giving each agent its own check-
+out on its own branch, merging afterwards (Ch. 8).
+181

@@ -1,0 +1,16 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Card from '../components/Card.astro';
+import Diagram from '../components/Diagram.astro';
+import {articles,topics,paths} from '../data/content';
+import {url} from '../lib/urls';
+const featuredArticle=articles[0];
+const insightCount=articles.filter(article=>article.insight).length;
+---
+<Layout active="home" title="发现值得留下的工程经验">
+<section class="hero"><div class="eyebrow"><span></span> A FIELD GUIDE FOR AI BUILDERS</div><div class="hero-heading"><h1>把信息，变成<span class="hand-underline">构建的能力。</span></h1><span class="hero-mark" aria-hidden="true">✳</span></div><p>从视频、课程、文章与讨论中，整理 AI 工程的原理与实践。<br/>先读懂，再深入。每一条经验，都有迹可循。</p><div class="hero-bottom"><a class="primary-button" href={url('library/')}>开始浏览资料 <span>↗</span></a><span class="hero-note">为好奇的开发者而整理</span></div></section>
+<div class="stats-strip"><span><strong>{articles.length.toString().padStart(2,'0')}</strong> 个资料集</span><span><strong>{insightCount.toString().padStart(2,'0')}</strong> 条工程精华</span><span><strong>{topics.length}</strong> 知识领域</span><span><i class="status-dot"></i> 用户资料 · 持续整理</span></div>
+<section class="featured-section"><div class="section-heading"><h2><span class="section-index">01 /</span> 本期精选 <small>EDITOR'S PICK</small></h2><a href={url('library/')}>浏览全部资料 ↗</a></div><div class="featured-layout"><a class="feature-copy" href={url(`articles/${featuredArticle.id}/`)}><div class="tags"><span class="green-tag">{featuredArticle.type}</span><span>原始文档</span></div><h2>{featuredArticle.title}</h2><p>{featuredArticle.summary}</p><div class="feature-foot"><span>{featuredArticle.sourceCount} 份 Markdown <b>·</b> 精华待提取</span><span class="round-arrow">↗</span></div></a><Diagram kind={featuredArticle.diagram}/></div></section>
+<section data-collection><div class="section-heading"><h2><span class="section-index">02 /</span> 最近整理 <small>FRESH NOTES</small></h2><a href={url('library/')}>查看全部 ↗</a></div><div class="filter-row" role="group" aria-label="筛选最近资料"><button class="filter-chip active" data-filter="all" aria-pressed="true">全部内容</button>{topics.filter(t=>['agent','tools','retrieval','memory','evals'].includes(t.id)).map(t=><button class="filter-chip" data-filter={t.id} aria-pressed="false">{t.name}</button>)}</div><div class="card-grid">{articles.slice(0,6).map(a=><Card article={a} visual/>)}</div><p class="empty-state" hidden>这个主题暂时没有资料。试试其他主题。</p></section>
+{paths.length>0&&<section><div class="section-heading"><h2><span class="section-index">03 /</span> 沿着问题学习 <small>LEARNING PATHS</small></h2><a href={url('paths/')}>全部路径 ↗</a></div><div class="path-grid">{paths.map((p,i)=><a class="path-card" href={url(`paths/#${p.id}`)}><span class="path-number">0{i+1} <span>↗</span></span><h3>{p.title}</h3><p>{p.description}</p><footer>{p.ids.length} 篇资料 <span>循序渐进 →</span></footer></a>)}</div></section>}
+</Layout>

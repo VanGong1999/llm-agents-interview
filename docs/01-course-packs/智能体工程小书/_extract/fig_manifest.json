@@ -1,0 +1,227 @@
+[
+  {
+    "id": "1",
+    "page": 5,
+    "file": "fig-1.png"
+  },
+  {
+    "id": "1.1",
+    "page": 14,
+    "file": "fig-1-1.png"
+  },
+  {
+    "id": "1.2",
+    "page": 18,
+    "file": "fig-1-2.png"
+  },
+  {
+    "id": "1.3",
+    "page": 22,
+    "file": "fig-1-3.png"
+  },
+  {
+    "id": "2",
+    "page": 30,
+    "file": "fig-2.png"
+  },
+  {
+    "id": "2.1",
+    "page": 30,
+    "file": "fig-2-1.png"
+  },
+  {
+    "id": "2.2",
+    "page": 33,
+    "file": "fig-2-2.png"
+  },
+  {
+    "id": "3.1",
+    "page": 48,
+    "file": "fig-3-1.png"
+  },
+  {
+    "id": "3.2",
+    "page": 51,
+    "file": "fig-3-2.png"
+  },
+  {
+    "id": "4",
+    "page": 64,
+    "file": "fig-4.png"
+  },
+  {
+    "id": "4.1",
+    "page": 65,
+    "file": "fig-4-1.png"
+  },
+  {
+    "id": "4.2",
+    "page": 70,
+    "file": "fig-4-2.png"
+  },
+  {
+    "id": "4.3",
+    "page": 71,
+    "file": "fig-4-3.png"
+  },
+  {
+    "id": "4.4",
+    "page": 73,
+    "file": "fig-4-4.png"
+  },
+  {
+    "id": "5",
+    "page": 78,
+    "file": "fig-5.png"
+  },
+  {
+    "id": "5.1",
+    "page": 78,
+    "file": "fig-5-1.png"
+  },
+  {
+    "id": "5.2",
+    "page": 81,
+    "file": "fig-5-2.png"
+  },
+  {
+    "id": "5.3",
+    "page": 85,
+    "file": "fig-5-3.png"
+  },
+  {
+    "id": "5.4",
+    "page": 87,
+    "file": "fig-5-4.png"
+  },
+  {
+    "id": "6",
+    "page": 94,
+    "file": "fig-6.png"
+  },
+  {
+    "id": "6.1",
+    "page": 94,
+    "file": "fig-6-1.png"
+  },
+  {
+    "id": "6.2",
+    "page": 95,
+    "file": "fig-6-2.png"
+  },
+  {
+    "id": "6.3",
+    "page": 101,
+    "file": "fig-6-3.png"
+  },
+  {
+    "id": "7",
+    "page": 113,
+    "file": "fig-7.png"
+  },
+  {
+    "id": "7.1",
+    "page": 113,
+    "file": "fig-7-1.png"
+  },
+  {
+    "id": "7.2",
+    "page": 117,
+    "file": "fig-7-2.png"
+  },
+  {
+    "id": "7.3",
+    "page": 119,
+    "file": "fig-7-3.png"
+  },
+  {
+    "id": "7.4",
+    "page": 120,
+    "file": "fig-7-4.png"
+  },
+  {
+    "id": "8",
+    "page": 126,
+    "file": "fig-8.png"
+  },
+  {
+    "id": "8.1",
+    "page": 126,
+    "file": "fig-8-1.png"
+  },
+  {
+    "id": "8.2",
+    "page": 131,
+    "file": "fig-8-2.png"
+  },
+  {
+    "id": "8.3",
+    "page": 133,
+    "file": "fig-8-3.png"
+  },
+  {
+    "id": "8.4",
+    "page": 139,
+    "file": "fig-8-4.png"
+  },
+  {
+    "id": "9",
+    "page": 144,
+    "file": "fig-9.png"
+  },
+  {
+    "id": "9.1",
+    "page": 145,
+    "file": "fig-9-1.png"
+  },
+  {
+    "id": "9.2",
+    "page": 147,
+    "file": "fig-9-2.png"
+  },
+  {
+    "id": "9.3",
+    "page": 148,
+    "file": "fig-9-3.png"
+  },
+  {
+    "id": "10",
+    "page": 159,
+    "file": "fig-10.png"
+  },
+  {
+    "id": "10.1",
+    "page": 160,
+    "file": "fig-10-1.png"
+  },
+  {
+    "id": "10.2",
+    "page": 161,
+    "file": "fig-10-2.png"
+  },
+  {
+    "id": "10.3",
+    "page": 163,
+    "file": "fig-10-3.png"
+  },
+  {
+    "id": "10.4",
+    "page": 166,
+    "file": "fig-10-4.png"
+  },
+  {
+    "id": "10.5",
+    "page": 170,
+    "file": "fig-10-5.png"
+  },
+  {
+    "id": "11",
+    "page": 178,
+    "file": "fig-11.png"
+  },
+  {
+    "id": "11.1",
+    "page": 178,
+    "file": "fig-11-1.png"
+  }
+]

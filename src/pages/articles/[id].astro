@@ -1,0 +1,25 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Diagram from "../../components/Diagram.astro";
+import {articles,topics} from "../../data/content";
+import {url} from "../../lib/urls";
+import {documentsByCollection} from "../../data/documents";
+export function getStaticPaths(){return articles.map(a=>({params:{id:a.id},props:{a}}));}
+const {a}=Astro.props;
+const topic=topics.find(t=>t.id===a.topic);
+const collectionDocs=documentsByCollection[a.id]||[];
+---
+<Layout title={a.title} active="library" description={a.summary} wide>
+<div class="breadcrumb"><a href={url("library/")}>资料库</a><span>/</span><a href={url("library/?topic="+a.topic)}>{topic.name}</a><span>/</span><span>{a.isCollection?"资料目录":"阅读笔记"}</span></div>
+<div class="reading-layout">
+<aside class="reading-toc" data-pagefind-ignore><span class="eyebrow">本篇目录</span><a href="#overview">00　内容速览</a>{a.sections.map((s,i)=><a href={"#"+s.id}>0{i+1}　{s.title}</a>)}{a.insight&&<a href="#insights">04　工程精华</a>}<div class="toc-divider"></div><span class="eyebrow">阅读工具</span><button class="text-button" data-save={a.id} aria-pressed="false">☆ 收藏本篇</button><button class="text-button" data-copy-link>↗ 复制链接</button>{a.insight&&<a data-return-insight hidden href={url("insights/#"+a.insight.id)}>← 返回刚才的精华</a>}</aside>
+<article class="reading-article" data-article-id={a.id}><div class="tags"><span class="green-tag">{topic.name}</span><span>{a.type}</span>{a.isCollection?<span>{a.sourceCount} 份文档</span>:<span>示例内容</span>}</div><h1>{a.title}</h1><p class="article-deck">{a.summary}</p><div class="article-byline"><span class="avatar">切</span><span>{a.author}<small>{a.isCollection?`本站更新于 ${a.updatedAt}`:`${a.date} · ${a.minutes} 分钟`} · {a.level}</small></span><button data-save={a.id} class="outline-button" aria-pressed="false">☆ 收藏</button></div>
+<div class="demo-notice">{a.isCollection?"已接入本地资料目录："+a.sourcePath+"。当前先完成资料登记与标签归类，尚未提取摘要或工程精华。":"本篇为网站功能演示而撰写的原创示例，工程建议未经实测。"}</div>
+{a.isCollection&&<section class="source-meta" aria-label="原始资料信息"><div><span>原始时间</span><strong>{a.sourcePeriod}</strong></div><div><span>原作者 / 讲师</span><strong>{a.sourcePeople}</strong></div><div><span>本站更新时间</span><strong>{a.updatedAt}</strong></div><div class="source-references"><span>原始参考链接</span><div>{a.references.map(([label,href])=><a href={href} target="_blank" rel="noreferrer">{label} ↗</a>)}</div></div></section>}
+<section id="overview" class="overview-box"><div class="eyebrow">{a.isCollection?"CATALOG / 资料集速览":"TL;DR / 先读这几句"}</div><h2>{a.isCollection?"这组资料包含什么？":"这篇内容能带来什么？"}</h2><p>{a.summary}</p><ul>{a.sections.map(s=><li>{s.title}</li>)}</ul></section>
+<Diagram kind={a.diagram}/><div class="diagram-caption">图解为流程示意，点击「下一步」逐步查看；不表示实际性能数据。</div>
+{a.sections.map((s,i)=><section id={s.id} class="prose-section"><div class="section-eyebrow">SECTION / 0{i+1}</div><h2>{s.title}</h2><p>{s.text}</p>{a.isCollection&&i===0&&<div class="source-file-list">{collectionDocs.map(doc=><a href={url("documents/"+a.id+"/"+doc.id+"/")}><span>{doc.title}</span><small>{doc.relativePath}</small></a>)}</div>}{!a.isCollection&&i===1&&<div class="callout"><strong>✧ 工程提示</strong><p>{a.insight.actions}</p><small>编辑示例 · 未实测</small></div>}{!a.isCollection&&i===2&&<><h3>需要考虑的权衡</h3><p>{a.insight.tradeoff}</p><h3>如何确认它有效</h3><p>{a.insight.validation}</p></>}</section>)}
+{a.insight&&<section id="insights" class="article-insights"><div class="eyebrow">TAKE IT WITH YOU / 工程精华</div><h2>{a.insight.title}</h2><p>{a.insight.actions}</p><a href={url("insights/#"+a.insight.id)}>查看完整工程卡片 ↗</a></section>}
+<div class="read-complete"><span>{a.isCollection?"资料集已登记，后续可逐篇整理。":"读完了？把这次理解留下来。"}</span><button class="primary-button" data-mark-read={a.id}>✓ 标记已读</button></div><section class="related"><h2>继续探索</h2>{articles.filter(x=>x.id!==a.id).slice(0,2).map(x=><a href={url("articles/"+x.id+"/")}>{x.title}<span>↗</span></a>)}</section></article>
+<aside class="reading-notes">{a.insight?<div class="margin-note"><div class="eyebrow">✧ 本篇精华</div><h3>{a.insight.title}</h3><p>{a.insight.actions}</p><a href={"#"+a.insight.sectionId}>定位详细依据 ↓</a></div>:<div class="margin-note"><div class="eyebrow">✧ CONTENT STATUS</div><h3>精华暂未提取</h3><p>当前已完成资料登记、标签归类和目录入口。后续可以按文件逐篇整理。</p></div>}<div class="margin-note muted-note"><div class="eyebrow">SOURCE / 来源</div><strong>{a.isCollection?a.sourcePath:"原创演示内容"}</strong><p>{a.isCollection?"原始 Markdown 文件位于项目 docs 目录。":"这是一份用于体验阅读流程的示例。"}</p></div><div class="tags">{a.tags.map(t=><a href={url("library/?topic="+a.topic+"&tag="+encodeURIComponent(t))}>{t}</a>)}</div></aside>
+</div></Layout>

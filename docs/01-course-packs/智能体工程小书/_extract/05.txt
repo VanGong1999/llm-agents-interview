@@ -1,0 +1,467 @@
+
+
+===== PAGE 77 =====
+
+Chapter 5
+Context engineering
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. We design 𝜙, the function that turns the
+history and the store into what the model actually sees.
+The context is the model’s entire world at each step, and it
+is a scarce resource.
+5.1 The context is the agent’s
+world
+At step 𝑡the model conditions on 𝑐𝑡and
+nothing else: whatever the agent “knows”
+about the task, its progress and its rules
+is whatever 𝜙put there. The window 𝑊
+69
+
+
+===== PAGE 78 =====
+
+has several claimants:
+|system| + |tools|
+⏟⏟⏟⏟⏟⏟⏟
+fixed, 𝑐0
++ |history|
+⏟
+grows with 𝑡
++ |retrieved| + |output| ≤𝑊.
+Early in a run, instructions and tool
+definitions dominate; later, tool results
+crowd everything else out (Figure 5.1).
+step 2
+step 40
+𝑊
+system + tools
+history (tool results)
+retrieved
+reserved output
+Figure 5.1. Composition of the context early and late in a
+run, as fractions of the window 𝑊. History, mostly tool
+results, grows until something must give: the run hits
+the window, or quality degrades well before that.
+Context engineering is the management
+of this budget, step by step [7]; the
+“prompt” is now a structure the harness
+assembles, not a string a human writes.
+70
+
+
+===== PAGE 79 =====
+
+5.2 Why more context is not
+better
+Three effects argue against filling the
+window.
+Attention is finite.
+A transformer at-
+tends from every token to every other; as
+the context grows, each relevant token
+competes with more irrelevant ones. Em-
+pirically, models retrieve information
+placed at the beginning or end of a long
+context more reliably than information
+in the middle, the lost-in-the-middle ef-
+fect [47]. Benchmarks that go beyond
+simple “needle in a haystack” retrieval
+find that effective context length, the
+length up to which performance holds,
+is often well below the advertised win-
+dow [29]. A study of eighteen models
+found performance degrading as input
+length grows even on simple tasks, a
+phenomenon its authors called context
+rot [28]. Details vary by model and im-
+71
+
+
+===== PAGE 80 =====
+
+prove with each generation; the direction
+does not.
+Figure 5.2 shows the original lost-in-the-
+middle experiment. A model answer-
+ing from twenty retrieved documents
+did best when the relevant one came
+first, nearly as well when it came last,
+and worst in the middle, where accu-
+racy fell back to about what the model
+achieved with no documents at all. The
+same study varied the number of docu-
+ments: the chance that the answer was
+somewhere in the retrieved set kept
+rising past fifty documents, while the
+reader’s accuracy stopped improving af-
+ter ten to twenty [47]. The gap between
+the two curves is evidence in the context
+that the model cannot use.
+72
+
+
+===== PAGE 81 =====
+
+position of the relevant document among twenty
+accuracy
+1st
+5th
+10th
+15th
+20th
+closed book (no documents)
+relevant document first
+in the middle
+Figure 5.2. Accuracy against the position of the relevant
+document among twenty retrieved (schematic, after
+Liu et al.). The first and last positions are used well; a
+document in the middle brings accuracy back near the
+model’s closed-book level, although the answer is in the
+context.
+Distraction compounds.
+Ten irrele-
+vant files are ten chances to latch onto
+the wrong code, and stale observations
+(test output from before the last edit) are
+plausible and wrong.
+Cost grows.
+Every token added early is
+paid for on every later step (Chapter 2).
+The working principle: find the smallest
+set of high-signal tokens that makes the next
+73
+
+
+===== PAGE 82 =====
+
+decision likely to be right [7].
+5.3 Context as selection
+It helps to see 𝜙as an optimization prob-
+lem. Let the candidate items be instruc-
+tions, tool definitions, past messages,
+tool results, retrieved passages and notes,
+with item 𝑖having size 𝑠𝑖tokens and
+some value 𝑣𝑖for the next decision. Then
+𝜙chooses a set 𝑆to
+max
+𝑆
+∑
+𝑖∈𝑆
+𝑣𝑖
+subject to
+∑
+𝑖∈𝑆
+𝑠𝑖≤𝑊−𝑟,
+where 𝑟reserves room for the output.
+This is a knapsack problem: it rewards
+value per token. The values are un-
+known and drift (the failing test’s output
+is crucial at step 1 and worthless after
+the fix), so practical builders use rules:
+always keep instructions and task, keep
+recent steps, shrink old tool results,
+retrieve on demand. Crucially, cheap
+references can be items: a file path costs
+a few tokens and lets the model fetch
+74
+
+
+===== PAGE 83 =====
+
+the content if it proves valuable. Much of
+context engineering is replacing contents
+by references.
+5.4 Layout: stable prefix,
+append-only history
+Before deciding what to remove, decide
+where things go.
+• Put stable material first. System
+prompt and tool definitions should
+be byte-identical across steps, so that
+the prompt cache of Chapter 2 hits.
+Dynamic content (dates, user names,
+retrieved passages) belongs later.
+• Append; do not rewrite. Editing an
+early message invalidates the cache for
+everything after it, and some providers
+reject edited histories that contain rea-
+soning blocks. If a tool should become
+unavailable, it is often better to refuse
+calls to it in the gate than to remove
+its definition mid-run [48].
+75
+
+
+===== PAGE 84 =====
+
+• Keep errors visible. A failed action
+and its error message teach the model
+what not to repeat. Silently removing
+failures invites the model to try the
+same thing again [48].
+• Restate the goal near the end. In long
+runs, a short, updated statement of
+the objective and remaining steps (a
+to-do list the agent maintains) keeps
+the current plan in the region of the
+context that models attend to most
+reliably.
+5.5 Four ways to shrink what the
+model sees
+When the context grows too large, there
+are four families of remedy (Figure 5.3).
+They differ in where they act and in
+whether the information they remove
+can be recovered.
+76
+
+
+===== PAGE 85 =====
+
+history ℎ𝑡
+Bound
+tools return less
+Elide
+old results
+→stubs
+Offload
+write to files,
+keep path
+Compact
+summarize,
+restart
+context 𝑐𝑡
+at source
+recoverable
+recoverable
+lossy
+Figure 5.3. Four ways to reduce context. Bounding acts
+at the source; elision and offloading keep a pointer, so
+the model can recover what was removed; compaction
+replaces history by a summary and is irreversible. Prefer
+recoverable reductions.
+Bound at the source.
+Tools that page,
+filter and summarize (Chapter 4) pre-
+vent most problems.
+Elide old tool results.
+Replacing old
+results by stubs keeps the conversa-
+tion’s structure while freeing most of
+the space. In miniagent this is a view,
+which changes what the model sees, not
+the recorded history:
+77
+
+
+===== PAGE 86 =====
+
+def elide_old_results(keep_last=4, min_chars=500):
+"""Replace all but the last `keep_last` long
+tool results by a stub. The history itself is
+untouched; only the model's view shrinks."""
+def view(messages: list[dict]) -> list[dict]:
+idx = [i for i, m in enumerate(messages)
+if m["role"] == "tool"]
+old = set(idx[:-keep_last] if keep_last
+else idx)
+out = []
+for i, m in enumerate(messages):
+n = len(m.get("content") or "")
+if i in old and n > min_chars:
+m = {**m, "content":
+f"[elided {n} chars; call the "
+"tool again if needed]"}
+out.append(m)
+return out
+return view
+The stub says how to recover the con-
+tent, so elision is recoverable. Providers
+offer the same operation server-side as
+“context editing.” Elision deserves the
+first try because observations dominate
+the budget. In measured agent runs on
+coding and mathematics tasks, tool ob-
+servations were about five sixths of all
+tokens, reasoning about a tenth and
+actions the rest (Figure 5.4), and replac-
+ing old observations by stubs matched
+model-written summaries on solve rate
+78
+
+
+===== PAGE 87 =====
+
+at lower cost and with no summarization
+latency [45]. One refinement: apply the
+edit every few steps rather than at every
+step, since each change to the model’s
+input invalidates the KV cache from that
+point (Chapter 2); batching edits keeps
+most steps fully cached.
+tool observations 84%
+reasoning 10%
+actions 6%
+Figure 5.4. Composition of a raw agent context by token
+type, over coding and mathematics runs. Tool obser-
+vations dominate; reasoning and actions together are
+a sixth. Shrinking observations is where the budget is.
+(Data from Lindenbauer et al., 2025.)
+Offload to the store.
+Notes, plans and
+intermediate results go to files; only
+paths stay in context. The file system
+becomes an extension of the window
+that the agent manages [48]. Taken to
+its limit, offloading makes the prompt
+itself an object in the environment. In
+recursive language models, a long input is
+79
+
+
+===== PAGE 88 =====
+
+stored in a variable inside a code sand-
+box; the model inspects it with code
+(print the first lines, split on a delimiter,
+search for a term) and calls itself on the
+pieces, so that no single call ever reads
+the whole [85]. On aggregation ques-
+tions over inputs of hundreds of thou-
+sands of tokens, a small model used this
+way beat a much larger model reading
+the input directly [79]. It is the coding
+agent’s habit, grep rather than read, ap-
+plied to the prompt.
+Compact.
+Near the limit, the model
+summarizes the run (decisions, changes,
+open problems, next steps) and continues
+from the summary. The usual layout af-
+terwards is the system prompt, the sum-
+mary, then the most recent turns verba-
+tim. This allows runs far longer than one
+window, but omitted details are gone.
+The failure to avoid is dropping a stand-
+ing constraint. In a widely reported inci-
+80
+
+
+===== PAGE 89 =====
+
+dent in 2026, a personal agent asked to
+suggest which emails to archive or delete,
+with the instruction to confirm before
+deleting anything, compacted its context
+on reading a long inbox, judged the in-
+struction no longer relevant, and began
+deleting [79]. Constraints and the defi-
+nition of done belong in the part of the
+context that compaction never touches,
+normally the system prompt, and the
+compaction instruction should name
+them explicitly. Keep the full history in
+the store.
+5.6 Just-in-time context
+Up-front loading puts everything possibly
+relevant into the context at the start. Just-
+in-time loading gives the agent references
+and tools to follow them [7]. Coding
+agents lean toward the latter: they list
+directories, grep and open what matters,
+as a programmer would. The cost is ex-
+tra steps; the benefit is a focused context
+81
+
+
+===== PAGE 90 =====
+
+that is never stale.
+Most systems are hybrid: a short brief-
+ing (what the project is, how to test it,
+conventions), often a root file such as
+AGENTS.md or CLAUDE.md, is loaded up
+front; the rest on demand. Skills apply
+the same pattern to procedures.
+5.7 Isolation
+Finally, a reading-heavy subtask can go
+to a subagent with a fresh context: it reads
+twenty files, and the parent receives a
+paragraph. This is the main reason to use
+multiple agents (Chapter 8).
+Summary
+• The context is everything the model
+knows at a step. Its budget 𝑊is
+shared by instructions, tools, history,
+retrieved material and output.
+• Longer contexts degrade quality (at-
+tention dilution, lost-in-the-middle,
+82
+
+
+===== PAGE 91 =====
+
+context rot) and raise cost; aim for the
+smallest high-signal context.
+• Treat 𝜙as selection under a budget;
+replace contents by references where
+possible.
+• Keep a stable prefix and an append-
+only history; keep errors visible; re-
+state the goal near the end.
+• Shrink context by bounding, eliding,
+offloading or compacting; prefer re-
+coverable reductions, starting with
+observations, the bulk of the tokens.
+Compaction must never drop a stand-
+ing constraint. Load just in time; iso-
+late heavy reading in subagents.
+How this connects
+Offloading and just-in-time loading need
+a store and a way to search it, the subject
+of Chapter 6. Long runs that outlive one
+window need explicit progress records
+83
+
+
+===== PAGE 92 =====
+
+(Chapter 7). Isolation is developed in
+Chapter 8. Everything that enters the
+context, including retrieved documents
+and tool outputs, can carry adversarial
+instructions (Chapter 9).
+Exercises
+5.1 In a 30-step run each read_file
+result averages 3,000 tokens and every
+other step reads a file. Estimate the con-
+text at step 30 with no elision and with
+elide_old_results(keep_last=3),
+ignoring everything but file contents.
+5.2 Write a compaction instruction for
+the bug-fixing agent: a list of what the
+summary must preserve and what it may
+drop. Name one failure that would fol-
+low from omitting each item you list as
+essential.
+84

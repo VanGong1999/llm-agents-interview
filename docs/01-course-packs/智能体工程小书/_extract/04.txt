@@ -1,0 +1,610 @@
+
+
+===== PAGE 58 =====
+
+Chapter 4
+Tools: designing the action
+space
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. We design 𝒜, the set of actions the model
+may propose, and the observations those actions return.
+Tools are the agent’s only way to affect the world and its
+main way to learn about it.
+4.1 Why tools
+Models are strong at text, code and math-
+ematics and weak in three recurring situ-
+ations (Table 4.1). The first is exact, long
+or verifiable computation: accuracy on
+multi-digit multiplication falls steadily
+50
+
+
+===== PAGE 59 =====
+
+with the number of digits, for reason-
+ing models too, and the same holds for
+puzzles and dynamic programming as
+problem size grows [23]. The second
+is knowledge the weights cannot hold:
+today’s weather, a private database, any-
+thing after the training cutoff, the cur-
+rent contents of stats.py. The third
+is interfaces that are not language at all:
+file systems, APIs, browsers, devices. In
+each case the remedy is the same. The
+model writes a request as text, and an
+external program does the work and re-
+ports back.
+51
+
+
+===== PAGE 60 =====
+
+Table 4.1. Where a model alone falls short, and the tools
+that address each limit.
+Limit
+Typical cases
+Tools
+exact or long
+computation
+arithmetic, multi-
+step deduction,
+search over many
+cases
+calculator, code
+execution,
+solvers, check-
+ers
+knowledge
+outside the
+weights
+current facts, pri-
+vate data, this
+repository
+search, retrieval,
+databases, live
+APIs
+non-language
+interfaces
+files, services, de-
+vices, the physical
+world
+function calls,
+tool protocols
+(Section 4.7),
+browsers, shells
+4.2 Tools as an interface for a
+model
+A tool has five parts, all visible in the
+Tool type of miniagent:
+@dataclass
+class Tool:
+name: str
+description: str
+# written for the model
+params: dict[str, dict] # JSON-Schema properties
+fn: Callable[..., str]
+# implementation
+effect: str = "read"
+# read|write|execute|
+# external
+@property
+def schema(self) -> dict:
+return {"type": "object",
+"properties": self.params,
+52
+
+
+===== PAGE 61 =====
+
+"required": list(self.params),
+"additionalProperties": False}
+The name, description and schema are read
+by the model; they are a user interface
+whose user is a language model. The
+implementation is ordinary code. The ef-
+fect class is read by the harness: it says
+whether the tool only reads, writes local
+state, executes code, or reaches outside
+the system, and the gate of Chapter 9 uses
+it to decide what needs permission.
+The SWE-agent authors called this layer
+the agent–computer interface and showed
+that, with the model fixed, its design
+changes success rates substantially [80]:
+a viewer showing a bounded window of
+numbered lines beat raw cat; summa-
+rized search beat dumped matches; an
+editor that rejects syntax-breaking edits
+beat one that does not. None made the
+model smarter; all made observations
+more informative and errors easier to
+detect.
+53
+
+
+===== PAGE 62 =====
+
+Here is the toolset of our running exam-
+ple:
+def tools(self) -> list[Tool]:
+s = {"type": "string"}
+return [
+Tool("list_files",
+"List all files in the repository.",
+{}, self.list_files),
+Tool("read_file",
+"Read a file; lines are numbered.",
+{"path": s}, self.read_file),
+Tool("search",
+"Regex search over *.py files. "
+"Returns 'file:line: text' per match.",
+{"pattern": s}, self.search),
+Tool("edit_file",
+"Replace the unique occurrence of "
+"'old' by 'new' in a file. Fails if "
+"'old' is missing or not unique.",
+{"path": s, "old": s, "new": s},
+self.edit_file, effect="write"),
+Tool("run_tests",
+"Run the unit tests. Returns PASSED, "
+"or FAILED with the failure report.",
+{}, self.run_tests, effect="execute"),
+]
+Each tool does one thing, returns text
+designed for a model, and declares its
+effect.
+4.3 Principles of tool design
+Return what the model needs for its
+next decision.
+read_file numbers
+54
+
+
+===== PAGE 63 =====
+
+its lines, so the model can refer to them;
+search returns file:line:
+text, so
+a hit can be opened directly; run_tests
+begins with PASSED or FAILED, so the
+outcome is unambiguous even if the
+report is truncated. Prefer meaningful
+identifiers (file paths, names) to opaque
+ones (database row ids), and natural-
+language summaries to raw dumps [11].
+Make errors instructive.
+The editor
+requires the replaced string to occur ex-
+actly once:
+def edit_file(self, path, old, new) -> str:
+target = self.resolve(path)
+text = target.read_text()
+n = text.count(old)
+if n != 1:
+# an error the model can act on
+raise ValueError(
+f"'old' must occur exactly once; "
+f"found {n}. Include more context.")
+target.write_text(text.replace(old, new))
+return f"edited {path}"
+An ambiguous old string yields an er-
+ror that says how many matches were
+found and what to do. A bare ValueEr-
+ror gives the model nothing to act on;
+55
+
+
+===== PAGE 64 =====
+
+silently replacing the first match does the
+wrong thing successfully. Instructive er-
+rors raise 𝑑; silent wrong behavior lowers
+it.
+Bound the output.
+One read_file on
+a 10,000-line file can fill a window. Prefer
+tools that page, filter or summarize, with
+truncation as a backstop that announces
+itself.
+Choose granularity deliberately.
+A
+bash tool can do anything a shell can,
+including what you did not anticipate;
+specific tools are easier to validate, per-
+mission and audit (Figure 4.1). Many
+coding agents combine a shell for explo-
+ration with dedicated tools for edits.
+56
+
+
+===== PAGE 65 =====
+
+bash
+any
+command
+run_python
+any program
+edit_file
+one
+replacement
+merge_pr
+one business
+action
+general, composable
+specific, checkable
+reach and flexibility ↑
+validation, permissions, audit ↑
+Figure 4.1. Tool granularity. General tools give the
+model reach and composability; specific tools give the
+harness something to check. A useful rule: make an
+operation its own tool when you want to validate it, per-
+mission it separately, or render it specially for a human.
+Keep the toolset small and distinct.
+Every definition occupies context on
+every call, and overlapping tools force
+the model to guess. Minimal harnesses
+whose default tools are read, write, edit
+and a shell hold their own on terminal
+benchmarks against far richer ones [79].
+Systems that need hundreds of tools can
+expose a search over tool descriptions
+and load matches on demand, a feature
+several providers now offer.
+Let the model decline.
+Some requests
+fit none of the tools. A model that must
+57
+
+
+===== PAGE 66 =====
+
+call something calls the nearest thing: a
+multiplication request becomes a call to
+the only arithmetic tool available, add.
+Make answering without a tool easy,
+and include such cases in evaluations.
+The Berkeley Function Calling Leader-
+board scores this relevance detection sep-
+arately, beside parallel calls and multi-
+turn use [58].
+Write descriptions for a capable new-
+comer.
+Say what the tool does, when
+to use it, what it returns and its pitfalls;
+“fails if old is not unique” prevents
+a class of errors. Then read transcripts
+and revise: descriptions are prompts and
+deserve evaluation [11].
+4.4 Effects and reversibility
+The effect class is the bridge from tools to
+safety. Table 4.2 gives the classes used in
+this book. They are ordered by how hard
+their consequences are to undo, which is
+58
+
+
+===== PAGE 67 =====
+
+the property that matters when deciding
+how much autonomy to grant.
+Table 4.2. Effect classes. The gate of Chapter 9 assigns
+permissions by class.
+Effect
+Examples
+Undo
+read
+list, read, search
+nothing to undo
+write
+edit a file in a working
+copy
+version control
+execute
+run tests, run a script
+depends on the
+code
+external
+send email, deploy, pay
+often impossible
+Prefer contained effects (edit a working
+copy under version control; stage a draft
+rather than send it), and separate prepa-
+ration from commitment: an agent can
+prepare a pull request or payment, and
+a human or stricter gate approves the
+external step.
+4.5 Code as the action language
+An alternative to many small tools is
+to let the model write a program: the
+action space becomes a programming
+59
+
+
+===== PAGE 68 =====
+
+language, and the harness runs the script
+in a sandbox, an execution environment
+that confines what the program can touch
+(Chapter 9). Executable Python actions
+have been shown to beat JSON tool calls
+on multi-tool tasks [70], because they
+compose: a loop over twenty files is one
+action, not twenty round trips through
+the context.
+Tools from MCP servers (next section)
+can likewise be presented as a code li-
+brary, keeping intermediate results out
+of the context [6]. The price: model-
+written code needs real isolation (Chap-
+ter 9) and is harder to permission call by
+call.
+4.6 Three generations of tool
+interface
+Who teaches the model about a tool, and
+when? Early systems trained it in. Tool-
+former learned where to insert calls to
+60
+
+
+===== PAGE 69 =====
+
+five fixed tools by checking whether a
+call lowered the loss on the text that fol-
+lowed [62]; Gorilla fine-tuned a model
+on thousands of API calls and measured
+hallucinated calls by parsing each call
+and checking it against a tree of real
+APIs [57]. Training ties the model to
+a tool set, and tool sets change daily.
+Practice settled on the other answer: de-
+scribe the tool at run time, in a format
+any model can read. Three generations
+of interface mark the shift (Figure 4.2).
+REST APIs are documented in prose
+for human programmers; a model using
+one must know the URL, the parameter
+names and the response shape. Func-
+tion calling, introduced in 2023, hands
+the model a JSON Schema and receives
+a typed call, which the harness validates
+before running it. MCP, below, moves
+the description into a protocol: a server
+advertises its tools, any client discovers
+them with one request, and the server is
+61
+
+
+===== PAGE 70 =====
+
+written once for every host. Each genera-
+tion moves knowledge about the tool out
+of the model and into a description read
+when needed, the same move as just-in-
+time context in Chapter 5.
+REST API
+for humans
+GET /weather?
+city=SF
+prose docs; the
+model must know
+URL and fields
+Function calling
+for one model
+{"name":
+"get_weather",
+"city": "SF"}
+a JSON Schema per
+tool; the harness
+validates
+MCP
+for any client
+tools/list
+tools/call
+the server
+advertises its tools;
+written once
+2023
+2024
+Figure 4.2. Three generations of tool interface. Each
+moves knowledge about the tool out of the model and
+into a description read at run time: prose for a human
+programmer, a schema for one model, a protocol for any
+client. (After CS329Z, Lecture 4.)
+4.7 Connecting tools from
+elsewhere: MCP
+Tools are often implemented by someone
+else: a database, an issue tracker, a calen-
+dar. The Model Context Protocol (MCP)
+standardizes how an agent application
+discovers and calls such tools [50]. Fig-
+ure 4.3 shows its architecture.
+62
+
+
+===== PAGE 71 =====
+
+Host
+agent application
+MCP client 1
+MCP client 2
+Model
+remote server
+issue tracker
+local server
+file system
+tool calls
+HTTP
+stdio
+Figure 4.3. MCP architecture. The host (the agent ap-
+plication) runs one MCP client per server. A server
+advertises tools, resources (readable data) and prompts.
+MCP standardizes discovery and invocation; the host
+still decides which tools to expose and the gate still de-
+cides which calls may run.
+Servers expose tools, resources and
+prompts; hosts connect through clients,
+locally over standard input and output
+or remotely over HTTP, exchanging
+JSON-RPC messages. A client learns
+what a server offers with one request
+(tools/list), which returns each
+tool’s name, description and input
+schema, the three fields the model reads
+in the Tool type above, and invokes a
+tool with another (tools/call). The
+specification is versioned by date. The
+2026-07-28 revision, current as this is
+63
+
+
+===== PAGE 72 =====
+
+written, made the core protocol stateless
+(each request carries its own version and
+capabilities) and moved features such as
+long-running tasks into extensions [49].
+MCP changes where tools come from, not
+what they are: an MCP tool still occupies
+context, returns observations that may be
+large or adversarial, and passes through
+the gate. A server you do not control is a
+source of untrusted text (Chapter 9).
+A server you do control is a natural place
+for a credential boundary (Figure 4.4).
+The agent presents its own token; the
+server checks which tools that agent
+may use, and reaches the underlying
+service with a separate credential the
+agent never sees. A course’s grading tool
+can be hidden from a student’s agent
+while its listing tool is exposed, and a
+leaked agent token does not leak the ser-
+vice’s [79]. Chapter 9 generalizes the
+principle: credentials stay outside what-
+64
+
+
+===== PAGE 73 =====
+
+ever the model can reach.
+Agent
+MCP server
+inbound check:
+which tools may
+this agent call?
+service API
+(grades, files)
+agent token
+tools/call
+service token
+the agent never holds the service token;
+the service never sees the agent’s
+Figure 4.4. An MCP server as a credential boundary.
+Inbound, the server checks what this agent may call;
+outbound, it uses its own credential for the service. The
+two tokens never meet.
+4.8 Skills: procedures loaded on
+demand
+Some knowledge is neither a tool nor a
+fact but a procedure: how this team for-
+mats release notes, how to fill a partic-
+ular form, which checks to run before
+merging. An agent skill packages such
+a procedure as a folder containing a
+SKILL.md file (a short name and de-
+scription, then instructions) and optional
+scripts or reference files [10, 2]. Only the
+name and description sit in the context
+permanently. When a task matches, the
+65
+
+
+===== PAGE 74 =====
+
+agent reads the full instructions, and from
+there any referenced files or scripts. This
+progressive disclosure keeps the standing
+cost of a large library of skills to a few
+dozen tokens each. Skills thus sit at the
+boundary between this chapter and the
+next: they extend what the agent can do,
+and they do so by managing what it sees.
+Summary
+• Tools cover what the weights cannot:
+exact computation, knowledge out-
+side training, and interfaces that are
+not language.
+• A tool is a name, description and
+schema (read by the model), an
+implementation, and an effect class
+(read by the harness).
+• Good tools return what the next de-
+cision needs, make errors instructive,
+bound their output, are few and dis-
+tinct, and leave room to call nothing.
+66
+
+
+===== PAGE 75 =====
+
+• Tool knowledge moved out of the
+model into run-time descriptions:
+prose for humans, schemas for one
+model, a protocol for any client.
+• Classify effects as read, write, execute
+or external, and prefer contained, re-
+versible effects; separate preparation
+from commitment.
+• Code-as-action composes many op-
+erations into one; MCP standardizes
+how external tools are discovered and
+called; skills load procedures on de-
+mand.
+How this connects
+Tool outputs are the largest consumer of
+context, which is the subject of Chapter 5.
+Search tools are the agent’s retrieval
+mechanism (Chapter 6). Effect classes
+drive permissions (Chapter 9), and tool
+descriptions are among the first things
+to tune when evaluations reveal failures
+67
+
+
+===== PAGE 76 =====
+
+(Chapter 10).
+Exercises
+4.1 Redesign read_file for a reposi-
+tory whose files can be 20,000 lines long.
+Specify its arguments, its output format,
+and the error or notice it returns when a
+request would exceed 300 lines.
+4.2 An operations agent needs to restart
+services. Compare a bash tool with
+a restart_service(name) tool in
+terms of what the gate can check, what
+the audit log records, and what can go
+wrong.
+68

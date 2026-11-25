@@ -1,0 +1,22 @@
+---
+import '../styles/global.css';
+import '../styles/taxonomy.css';
+import '../styles/collection.css';
+import '../styles/documents.css';
+import '../styles/navigation.css';
+import {articles} from '../data/content';
+import {url} from '../lib/urls';
+const {title='工程切片',active='home',description='从真实材料中，提炼可落地的 AI 工程经验。',wide=false}=Astro.props;
+const insightCount = articles.filter(a=>a.insight).length;
+const nav=[['home','','发现','⌂'],['library','library/','资料库','▤'],['topics','topics/','主题索引','⊞'],['insights','insights/','工程精华','✧']];
+---
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width"/><meta name="description" content={description}/><meta name="theme-color" content="#f6f5ef"/><title>{title} · Engineering Notes</title><link rel="icon" type="image/svg+xml" href={url('favicon.svg')}/><script is:inline>try{if(localStorage.getItem('en-theme')==='dark')document.documentElement.dataset.theme='dark'}catch{}</script></head>
+<body data-base={url('')}>
+<a class="skip-link" href="#main">跳至内容</a>
+<div class="shell"><header class="topbar" data-pagefind-ignore><div class="topbar-brand"><a href={url()}><span class="brand-icon">切</span><strong>工程切片<span class="brand-dot">.</span></strong></a></div><nav class="top-nav" aria-label="主导航">{nav.map(([id,path,name,icon])=><a class:list={['top-nav-link',{selected:active===id}]} href={url(path)} aria-current={active===id?'page':undefined}><span>{icon}</span>{name}{id==='library'&&<small>{articles.length}</small>}{id==='insights'&&<small>{insightCount}</small>}</a>)}</nav><div class="top-actions"><button data-search-open class="top-search">⌕ 搜索知识与灵感 <kbd>⌘ K</kbd></button><a href={url('about/')}>关于本站 ↗</a><span class="divider"></span><button data-theme aria-label="切换深浅主题">◐</button></div></header>
+<main id="main" class:list={['main',{wide}]} data-pagefind-body><slot/></main>
+<footer class="site-footer" data-pagefind-ignore><span>工程切片 <b> / </b> ENGINEERING NOTES</span><span>理解原理 · 连接知识 · 动手构建</span><a href={url('about/')}>内容与来源说明 ↗</a></footer></div>
+<dialog id="search-dialog" aria-labelledby="search-title"><div class="search-heading"><h2 id="search-title">搜索知识库</h2><button data-search-close aria-label="关闭搜索">Esc ×</button></div><div id="search-container"><p>正在准备搜索索引…</p></div><p class="search-hint">支持标题、正文与中英文技术术语。示例内容已明确标记。</p></dialog>
+<div class="toast" role="status" aria-live="polite"></div>
+<script>import '../scripts/site.js';</script>
+</body></html>

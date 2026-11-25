@@ -1,0 +1,483 @@
+
+
+===== PAGE 9 =====
+
+Chapter 1
+What an agent is
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. This chapter introduces the whole map; the
+symbols on the arrows are defined in Section 1.2. Later
+chapters zoom into one component at a time.
+1.1 From a function call to a loop
+Consider our running example. A
+small repository contains stats.py,
+which defines a function trail-
+ing_mean(xs, w) that should return,
+at each position 𝑖, the mean of the last
+𝑤values ending at 𝑖. A test asserts that
+trailing_mean([10,20,30,40],
+1
+
+
+===== PAGE 10 =====
+
+2) equals [10,15,25,35]. The test
+fails. We would like a program that,
+given only the instruction “the tests
+fail; find the bug and fix it,” produces a
+correct edit.
+No fixed script does this in general, be-
+cause the useful next step depends on
+what has been learned so far: the failure
+message suggests a file, the file a hypoth-
+esis, the hypothesis an edit, and rerun-
+ning the tests confirms or refutes it. A
+language model can play the deciding
+role in this loop of act, observe, decide: it
+proposes the next operation, a surround-
+ing program executes it and feeds the
+result back.
+2
+
+
+===== PAGE 11 =====
+
+An agent is a program in which a
+model repeatedly chooses actions, the
+program executes them in an envi-
+ronment, and the observations inform
+subsequent choices, until the model
+declares the task done or a limit is
+reached.
+The definition excludes a single model
+call (no loop) and a fixed pipeline of
+calls (the model does not choose the next
+step). It specializes the classical notion
+of an agent as something that perceives
+and acts upon its environment [60] to a
+language model acting through text and
+structured data [73, 71].
+1.2 The agent loop, formally
+Every design decision in this book con-
+cerns one term of the following loop, so
+it pays to state it precisely. Let 𝑢be the
+user’s task. At each step 𝑖the model
+proposes an action 𝑎𝑖(a tool call, or the
+3
+
+
+===== PAGE 12 =====
+
+decision to stop) and the harness returns
+an observation 𝑜𝑖(the tool’s output, or
+a refusal). After 𝑡−1 steps, the history
+is the sequence of everything that has
+happened:
+ℎ𝑡= (𝑢, 𝑎1, 𝑜1, 𝑎2, 𝑜2, … , 𝑎𝑡−1, 𝑜𝑡−1).
+The model never sees ℎ𝑡directly. The
+harness builds a context from the history
+and from any external store 𝑀(files,
+memories, documents):
+𝑐𝑡= 𝜙(ℎ𝑡, 𝑀),
+|𝑐𝑡| ≤𝑊,
+where |𝑐𝑡| is the length in tokens (the
+units of text a model reads and writes;
+an English token is roughly three quar-
+ters of a word) and 𝑊the model’s con-
+text window. The model is a stochastic
+policy: it maps a context to a distribution
+over actions, and an action is sampled
+from it,
+𝑎𝑡∼𝜋( ⋅∣𝑐𝑡),
+𝑎𝑡∈𝒜∪{stop(𝑦)}.
+4
+
+
+===== PAGE 13 =====
+
+Here 𝒜is the set of tool calls the harness
+offers and stop(𝑦) means “finish with
+answer 𝑦.” A proposed action is not exe-
+cuted blindly. A gate 𝑔decides whether
+it may run in the current state 𝑠𝑡of the
+environment:
+𝑜𝑡= 𝐸(𝑠𝑡, 𝑎𝑡)
+if 𝑔(𝑎𝑡, 𝑠𝑡) = allow,
+and otherwise 𝑜𝑡is a refusal message
+such as “not permitted: …”. An allowed
+action may also change the environ-
+ment’s state, 𝑠𝑡↦𝑠𝑡+1. The run ends
+at the stopping time
+𝜏= min{𝑡∶𝑎𝑡= stop(𝑦)} ∧𝑇max,
+where 𝑇max is a budget. Finally, an evalu-
+ator 𝑅judges the outcome from the final
+state and the answer, 𝑅(𝑠𝜏, 𝑦) ∈{0, 1} in
+the simplest case.
+5
+
+
+===== PAGE 14 =====
+
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Figure 1.1. The agent map. The model 𝜋is the only com-
+ponent we do not write. Everything inside the dashed
+boundary is the harness: it builds the context 𝑐𝑡from
+the history and the store, checks each proposed action
+𝑎𝑡, executes allowed actions in the environment, and
+records observations 𝑜𝑡. The evaluator judges the final
+state.
+1.3 What the engineer controls
+The formalism makes one fact vivid. In
+most agent projects the policy 𝜋is fixed:
+we pick a model from a provider and
+do not change its weights. What we de-
+sign is everything else. Writing 𝒟for the
+distribution of tasks we care about, the
+6
+
+
+===== PAGE 15 =====
+
+engineering problem is roughly
+max
+𝒜, 𝜙, 𝑔, 𝑀, loop 𝔼𝑢∼𝒟𝔼𝜋[𝑅(𝑠𝜏, 𝑦)]
+−𝜆𝔼[cost]
+s.t. safety constraints,
+where the inner expectation is over the
+model’s randomness and 𝜆prices tokens
+and time. This is unlike reinforcement
+learning, where the policy is the thing
+being optimized. Here we optimize the
+policy’s surroundings. Table 1.1 lists
+the levers and the chapters that develop
+them; it is the spine of the book.
+7
+
+
+===== PAGE 16 =====
+
+Table 1.1. The components of an agent, the design ques-
+tion each raises, and where it is treated.
+Term
+Design question
+Chapter
+𝜋
+Which model, and how do
+we talk to it?
+2
+loop, 𝜏
+How are steps sequenced
+and stopped?
+3, 7
+𝒜, 𝐸
+Which actions exist, and
+what do they return?
+4
+𝜙, 𝑊
+What does the model see at
+each step?
+5
+𝑀
+What is stored outside
+the window, and how is it
+found?
+6
+loop struc-
+ture
+One agent, a workflow, or
+several agents?
+8
+𝑔
+Which actions may run,
+and who decides?
+9
+𝑅
+How do we know a change
+helped?
+10
+Two consequences follow. Because 𝜋is
+stochastic, a run is a random variable,
+and every claim about an agent’s quality
+is a statistical claim (Chapter 10). And
+the components interact: a tool that re-
+turns enormous outputs (a choice about
+𝒜) degrades the context (𝜙); a permis-
+sive gate makes prompt injection, instruc-
+8
+
+
+===== PAGE 17 =====
+
+tions smuggled into the context through
+data the agent reads (Chapter 9), dan-
+gerous. The chapters are separate; the
+design is not.
+A corollary is a way to localize failures.
+A compound system has three layers:
+the system (the harness and its com-
+ponents), the data (what the model is
+shown: instructions, worked examples,
+retrieved material) and the evaluation (the
+tasks and the metric). When an agent un-
+derperforms, the first question is which
+layer is at fault. A wrong metric makes a
+weak agent look good, and a correct har-
+ness fed stale documents fails for reasons
+no code change will fix [79]. Chapter 10
+turns this question into a procedure.
+1.4 The autonomy spectrum
+Not every task needs an agent. The de-
+cisive question is who chooses the next
+step: the programmer, ahead of time,
+or the model, at run time. Figure 1.2
+9
+
+
+===== PAGE 18 =====
+
+arranges common architectures by this
+criterion [4].
+Program
+code decides
+everything
+Workflow
+fixed steps,
+some are
+model calls
+Router
+model picks
+one branch
+Agent
+model picks
+every step
+Multi-agent
+agents
+delegate
+to agents
+model decides more of the control flow
+←predictable, cheap, testable
+flexible, adaptive →
+Figure 1.2. Architectures ordered by how much of the
+control flow the model decides. Moving right buys
+flexibility on open-ended tasks and costs predictability,
+latency and money. Most production systems mix levels:
+a workflow whose steps contain small agents, or an
+agent whose tools are fixed workflows.
+For example, computing a trailing mean
+is a program; “summarize each failing
+test, draft a fix, run a linter” is a work-
+flow; classifying an issue as bug or fea-
+ture request is a router; fixing an un-
+known bug is an agent. The levels com-
+pose, and Chapter 8 returns to them.
+1.5 When an agent is worth it
+Each model decision costs tokens and
+seconds and introduces a chance of error.
+10
+
+
+===== PAGE 19 =====
+
+Four questions decide whether moving
+right on the spectrum is worth it [4, 52]:
+1. Is the path unpredictable? If you can
+write the sequence of steps down in
+advance, write it as code or as a work-
+flow.
+2. Can the outcome be verified? Agents
+improve dramatically when the en-
+vironment says whether an action
+worked: tests pass, a query returns
+rows, a page loads.
+3. Are errors cheap and recoverable?
+An agent that edits a scratch copy of a
+repository can be wrong many times
+on the way to being right. An agent
+that sends email cannot.
+4. Is the value worth the cost and la-
+tency? An agent may use tens or hun-
+dreds of model calls where a work-
+flow uses three.
+11
+
+
+===== PAGE 20 =====
+
+Software engineering scores well on all
+four, which is a large part of why coding
+agents were the first agents to become
+broadly useful [32, 80]. The boundary
+between workflow and agent moves with
+the models. Agentless fixes GitHub is-
+sues with a fixed three-stage pipeline
+(localize the file, draft candidate patches,
+run tests) and for a time matched agents
+that chose their own steps, at a fraction
+of the cost [75]; SWE-agent, which opens
+files and runs commands as it sees fit,
+is the agent form of the same task [80].
+When the path is predictable enough,
+the workflow wins on cost and debugga-
+bility; when it is not, the agent wins on
+coverage. Our running example inherits
+these properties: the path is unknown,
+the test suite verifies, edits in a working
+copy are reversible, and a correct fix is
+worth a few cents.
+12
+
+
+===== PAGE 21 =====
+
+Why verification matters:
+compounding error
+The second question deserves a calcu-
+lation, because it explains much of the
+book’s structure. Suppose each step of
+a 𝑇-step task is correct with probability
+𝑟, independently, and any error is fatal.
+Then
+𝑃(success) = 𝑟𝑇.
+With 𝑟= 0.99 and 𝑇= 100, this is
+0.99100 ≈0.37; with 𝑟= 0.95 and 𝑇=
+50 it is 0.077. Long tasks are hopeless
+under this model, however good each
+step is.
+Now suppose an error is detected with
+probability 𝑑(a test fails, a tool returns
+an error) and, once detected, is repaired
+at the cost of a few extra steps. Only un-
+detected errors are fatal, so the effective
+per-step failure probability drops from
+1 −𝑟to (1 −𝑟)(1 −𝑑):
+𝑃(success) ≈(1 −(1 −𝑟)(1 −𝑑))
+𝑇.
+13
+
+
+===== PAGE 22 =====
+
+With 𝑟= 0.95, 𝑑= 0.9 and 𝑇= 50
+this is 0.99550 ≈0.78, ten times better.
+Figure 1.3 plots both regimes.
+𝑇
+𝑃(success)
+0
+25
+50
+75
+100
+0.5
+1
+𝑟= 0.99
+𝑟= 0.95
+𝑟= 0.95, 𝑑= 0.9
+Figure 1.3. Success probability over a 𝑇-step task. With-
+out feedback, per-step reliability 𝑟compounds geomet-
+rically. When the environment detects 90% of errors and
+the agent can repair them, the same 𝑟= 0.95 model
+completes long tasks most of the time.
+The model is crude, but its lesson recurs
+throughout the book: agents succeed on
+long tasks not by never erring but by notic-
+ing and correcting errors, which requires
+signals from the environment. Good tools
+return informative errors (Chapter 4),
+good loops verify before declaring suc-
+14
+
+
+===== PAGE 23 =====
+
+cess (Chapter 7), and good evaluations
+measure reliability over repeated trials
+(Chapter 10).
+Summary
+• An agent is a loop: build context, let
+the model choose an action, check it,
+execute it, observe, repeat.
+• The model is a fixed stochastic policy
+𝜋; agent engineering designs the har-
+ness around it: actions 𝒜, context 𝜙,
+store 𝑀, gate 𝑔, loop structure, and
+evaluation 𝑅.
+• Choose the least autonomous architec-
+ture that solves the task. Agents pay
+off when the path is unpredictable,
+outcomes are verifiable, errors are re-
+coverable, and the value justifies the
+cost.
+• Without feedback, errors compound
+geometrically; with detection and re-
+15
+
+
+===== PAGE 24 =====
+
+pair, long tasks become feasible.
+How this connects
+Chapter 2 opens the box labeled 𝜋: what
+a model call is, why it is random, and
+what it costs. Chapter 3 then implements
+the loop of Figure 1.1 in about forty lines
+of Python and runs it on the example.
+Exercises
+1.1 For each task, place the simplest ad-
+equate architecture on the spectrum of
+Figure 1.2 and justify it with the four
+questions: (a) nightly conversion of a
+CSV report to a fixed PDF layout; (b)
+triaging incoming support emails into
+five queues; (c) answering “why did last
+night’s build fail?” in a large monorepo.
+1.2 A 40-step task uses a model with per-
+step reliability 𝑟= 0.97. What detection
+probability 𝑑is needed for an overall
+success probability of at least 0.8 under
+16
+
+
+===== PAGE 25 =====
+
+the second model above?
+17

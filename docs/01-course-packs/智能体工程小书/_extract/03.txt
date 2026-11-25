@@ -1,0 +1,424 @@
+
+
+===== PAGE 44 =====
+
+Chapter 3
+The loop
+User
+Model 𝜋
+Store 𝑀
+memory, logs
+Loop
+control
+Context
+builder 𝜙
+Gate 𝑔
+permissions
+Environment
+𝐸(tools)
+Evaluator 𝑅
+harness
+task
+ℎ𝑡
+𝑐𝑡
+𝑎𝑡
+if allowed
+observation 𝑜𝑡
+final state
+Where we are. We implement the control loop that connects
+the components: about forty lines that call the model,
+execute actions, record observations and decide when to
+stop.
+3.1 The loop in code
+Here are the equations of Chapter 1 as
+a Python function; read it beside Fig-
+ure 1.1.
+36
+
+
+===== PAGE 45 =====
+
+def run(task: str, model: Model,
+tools: list[Tool], *,
+system="You are a careful assistant.",
+gate=allow_all, view=lambda m: m,
+max_steps=30, log=lambda e: None):
+registry = {t.name: t for t in tools}
+messages = [{"role": "user", "content": task}]
+for step in range(1, max_steps + 1):
+# 1. policy: choose the next action
+reply = model.next(system, tools,
+view(messages))
+messages.append({"role": "assistant",
+"reply": reply})
+log({"step": step, "text": reply.text,
+"calls": [(c.name, c.args)
+for c in reply.calls]})
+# 2. termination
+if reply.stop not in ("end_turn",
+"tool_use"):
+return Result("stopped", reply.text,
+messages, step)
+if not reply.calls:
+return Result("answered", reply.text,
+messages, step)
+# 3. act and observe
+for call in reply.calls:
+obs = execute(call, registry, gate)
+messages.append({
+"role": "tool", "call_id": call.id,
+"content": obs.content,
+"is_error": obs.is_error})
+log({"step": step, "call": call.id,
+"error": obs.is_error,
+"observation": obs.content[:200]})
+return Result("budget_exhausted", None,
+messages, max_steps)
+Each line corresponds to a term of the
+formal loop:
+37
+
+
+===== PAGE 46 =====
+
+• messages is the history ℎ𝑡. It begins
+with the task 𝑢and grows by one as-
+sistant entry and one entry per tool
+result at every step.
+• view(messages) is the context
+builder 𝜙. Here it defaults to the iden-
+tity, so the model sees everything;
+Chapter 5 replaces it with something
+smarter without touching the loop.
+• model.next(…) samples 𝑎𝑡∼𝜋(⋅∣
+𝑐𝑡).
+• execute(call, registry,
+gate) applies the gate 𝑔and, if al-
+lowed, the environment 𝐸, returning
+the observation 𝑜𝑡.
+• max_steps is the budget 𝑇max; the
+three return statements implement
+the stopping time 𝜏.
+• log writes an event record outside
+the context, the beginning of the store
+38
+
+
+===== PAGE 47 =====
+
+𝑀.
+The loop contains no planner and no
+hard-coded sequence of steps. The
+model decides what to do next; the har-
+ness decides what is possible and records
+what happened. Everything added later
+plugs into one of the parameters view,
+gate, tools or log.
+3.2 Executing a call
+The function execute is where propos-
+als meet the world. It applies four guards
+in sequence, and every failure becomes
+an observation rather than an exception.
+def execute(call: ToolCall, tools: dict,
+gate, max_chars=8000) -> Observation:
+tool = tools.get(call.name)
+if tool is None:
+return Observation(
+f"unknown tool {call.name!r}", True)
+problem = validate(tool, call.args)
+if problem:
+return Observation(
+f"invalid arguments: {problem}", True)
+verdict = gate(tool, call.args)
+# "allow"
+if verdict != "allow":
+# or a reason
+return Observation(
+f"not permitted: {verdict}", True)
+try:
+39
+
+
+===== PAGE 48 =====
+
+out = tool.fn(**call.args)
+except Exception as exc:
+# errors are data
+return Observation(
+f"{type(exc).__name__}: {exc}", True)
+if len(out) > max_chars:
+# protect context
+cut = len(out) - max_chars
+out = (out[:max_chars]
++ f"\n[truncated {cut} chars]")
+return Observation(out)
+proposed call
+known tool?
+arguments valid?
+gate allows?
+run tool
+truncate if long
+observation
+“unknown tool”
+“invalid
+arguments: …”
+“not permitted: …”
+exception text
+no
+no
+no
+no
+is_error
+Figure 3.1. The path of one proposed call through ex-
+ecute. Every exit returns an observation to the model.
+Failures are not exceptions that end the run; they are
+information the model can act on, such as a corrected
+argument or a different approach.
+40
+
+
+===== PAGE 49 =====
+
+The order matters. A hallucinated tool
+name (one the model invented) gets a
+precise message; permission logic never
+sees malformed input; a declined action
+has no effect at all; and a missing file be-
+comes readable text: “FileNotFoundError:
+stats2.py” is a good observation, to which
+a capable model responds by listing the
+directory.
+This is the compounding-error argument
+of Chapter 1 in code: each guard detects
+a class of error and reports it back, rais-
+ing 𝑑. Truncation instead protects the
+context window, and says that it did, so
+the model can ask for a narrower view.
+3.3 A trace of the running
+example
+Running the offline demo produces the
+run’s trace, the record of its actions and
+observations, shown in Table 3.1. The
+model is scripted, so the sequence is
+41
+
+
+===== PAGE 50 =====
+
+fixed, but it is the sequence a competent
+model typically follows, and it shows the
+harness doing its job.
+Table 3.1. The demo run. Each step is one model call;
+observations are abbreviated.
+𝑡
+Action 𝑎𝑡
+Observation 𝑜𝑡
+1
+run_tests()
+FAILED: expected [10,
+15, 25, 35], got [15,
+25, 35, 40]
+2
+read_file
+(stats.py)
+numbered source; line 11 is
+window = xs[i:i + w]
+3
+edit_file(…)
+replacing it by
+xs[max(0,i-
+w+1):i+1]
+edited stats.py
+4
+run_tests()
+PASSED, 2 tests
+5
+final text
+“Fixed: the window looked
+forward …”
+Three habits are visible. The agent ob-
+serves before acting: the failure output,
+showing forward-shifted values, nearly
+locates the bug. The edit is minimal and
+checkable. And the agent verifies before
+declaring success: step 4 turns “I fixed
+it” into evidence. Chapters 4 and 7 turn
+42
+
+
+===== PAGE 51 =====
+
+these habits into design principles.
+3.4 How a run ends
+The loop has three exits, and conflating
+them is a classic source of silent failure.
+running
+answered
+budget exhausted
+stopped
+truncated, refused
+success
+failure
+tool calls
+no calls
+𝑡= 𝑇max
+abnormal stop
+evaluator 𝑅
+Figure 3.2. States of a run. The loop reports one of three
+terminal statuses; only evaluation decides success. “An-
+swered” means the model stopped calling tools, not that
+the task was done.
+Answered is the normal exit and says
+nothing about correctness: a model can
+confidently announce a fix that does not
+work. Budget exhausted is a failure whose
+trace is diagnostic: looping on one call is a
+different defect from wandering. Stopped
+covers truncated or declined generations,
+which must not be passed off as answers.
+Only the evaluator, inspecting the final
+43
+
+
+===== PAGE 52 =====
+
+state, decides success.
+Production harnesses also bound tokens,
+time and money, and allow cancellation
+between steps. A step limit cannot inter-
+rupt a hung tool; that needs a timeout or
+a process boundary (Chapter 9).
+3.5 Why a simple loop
+The loop descends from ReAct, which
+showed that interleaving reasoning with
+actions and observations beats either
+alone [82]. Two details of that paper
+foreshadow the rest of this book. In its
+failure analysis, chain-of-thought reason-
+ing without actions hallucinated facts
+in more than half of its errors, while the
+version that could search hallucinated in
+none: acting grounds reasoning in obser-
+vations. And a small model fine-tuned on
+reasoning-and-acting traces (trained fur-
+ther on examples of the behavior) beat a
+far larger model merely prompted to pro-
+duce them. Early frameworks wrapped
+44
+
+
+===== PAGE 53 =====
+
+the loop in planners, task queues and
+role hierarchies; as models improved,
+much of that stopped paying for itself,
+and current practice for capable models
+is close to the minimal loop: good tools,
+a well-managed context, a clear task [4].
+The improvement had a specific form.
+Providers now post-train models (train
+them further, after the initial training
+on text) on agentic tasks with verifiable
+outcomes, for instance repositories into
+which bugs are injected procedurally,
+with a reward when the hidden tests
+pass again; one such recipe raised an
+open 32-billion-parameter model from
+about 9% to about 40% on SWE-bench
+Verified, a benchmark of real GitHub is-
+sues (Chapter 10) [81]. Behaviors that
+early harnesses had to script (plan, ob-
+serve before acting, verify before stop-
+ping) are increasingly in the weights.
+Structure moves out of the control flow
+into tools, context and verification, a lo-
+45
+
+
+===== PAGE 54 =====
+
+cal instance of the “bitter lesson” that
+general methods exploiting computation
+beat hand-engineered structure [66].
+The loop already handles several tool
+calls in one reply (reading three files at
+once); running them concurrently is an
+optimization valid only for independent
+calls.
+3.6 Testing the harness
+Because the model is behind an interface,
+the harness can be tested with a scripted
+model, offline and deterministically. The
+companion suite checks, among other
+things, that:
+• the scripted fix leaves a repository
+whose tests pass;
+• with an approver that declines every
+edit, the edit is refused, the refusal
+reaches the model as an observation,
+and the repository is unchanged;
+46
+
+
+===== PAGE 55 =====
+
+• a model that never stops calling
+tools ends with status bud-
+get_exhausted after exactly 𝑇max
+steps and no answer;
+• a truncated generation ends with sta-
+tus stopped, not answered;
+• unknown tools, invalid arguments
+and tool exceptions all become error
+observations.
+These tests show the harness behaves
+correctly given a sequence of decisions,
+not that a model will decide well. Har-
+ness bugs are found by unit tests; model
+behavior is measured by evaluations.
+Summary
+• The loop is short: build context, call
+the model, stop if there are no tool
+calls, otherwise execute each call and
+append the observation.
+• execute turns every failure (un-
+47
+
+
+===== PAGE 56 =====
+
+known tool, invalid arguments, de-
+nial, exception) into an observation,
+which keeps the feedback loop closed.
+• A run ends answered, budget-
+exhausted or stopped; only evaluation
+of the final state decides success.
+• Keep the loop simple; put structure
+into tools, context and verification.
+Test the harness with a scripted
+model.
+How this connects
+The loop has four plug-in points, and
+the next chapters fill them: tools
+(Chapter 4), view (Chapters 5 and 6),
+gate (Chapter 9) and log (Chapters 7
+and 10). Chapter 8 shows that a whole
+agent can itself be packaged as a tool.
+Exercises
+3.1 A scripted model calls run_tests
+at every step and never answers. With
+48
+
+
+===== PAGE 57 =====
+
+max_steps=5, what does run return,
+how many entries does messages con-
+tain, and why would returning the last
+observation as the “answer” be wrong?
+3.2 Suppose execute called the gate be-
+fore validating arguments. Describe an
+input for which this ordering produces
+a confusing observation, and one for
+which it is a security problem.
+49
